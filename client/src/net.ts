@@ -72,7 +72,8 @@ export class Net {
 
   async connect(name: string) {
     const params = new URLSearchParams(location.search);
-    const url = params.get('server') ?? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:${SERVER_PORT}`;
+    const url = params.get('server')
+      ?? (import.meta.env.DEV ? '/colyseus' : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:${SERVER_PORT}`);
     const client = new Client(url);
     try {
       const room = await Promise.race([

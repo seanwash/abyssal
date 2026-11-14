@@ -1,0 +1,9 @@
+services:
+  server:
+    command: npm run server
+    port: 2567
+  client:
+    command: npm run client -- --port "$PORT" --strictPort
+    portal:
+      title: Abyssal
+      description: The first two tabs join the same dive. Add ?name=Jaime to set a diver name.
