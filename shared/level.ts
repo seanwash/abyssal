@@ -6,6 +6,8 @@ export interface Boulder { x: number; y: number; z: number; r: number; sy: numbe
 export interface Kelp { x: number; z: number; floorY: number; height: number; phase: number; lean: number }
 export interface Jelly { x: number; y: number; z: number; scale: number; phase: number; hero: boolean }
 export interface Point { x: number; y: number; z: number }
+/** Where a creature starts. `kind` names its module in `shared/creatures`; `route` is a loop to patrol, for creatures that patrol. */
+export interface CreatureSpawn { id: string; kind: string; at: Point; route?: Point[] }
 
 export interface Level {
   seed: number;
@@ -16,9 +18,7 @@ export interface Level {
   kelp: Kelp[];
   jellies: Jelly[];
   spawns: Point[];
-  /** The lingcod's egg mass on the floor of the Hollow, and the loop the drone patrols midwater. */
-  nest: Point;
-  patrol: Point[];
+  creatures: CreatureSpawn[];
 }
 
 /**
@@ -157,6 +157,14 @@ export function buildLevel(seed = 7): Level {
     });
   }
 
+  // The drone's midwater loop passes either side of the pinnacle, so it has to steer around it.
+  const patrol = [
+    { x: 13, y: -4, z: -12 },
+    { x: 17, y: -5, z: -2 },
+    { x: 12, y: -3.5, z: 4 },
+    { x: 3, y: -4.5, z: -1 },
+  ];
+
   return {
     seed,
     floorExtentX: (PLAY_HALF_X + 14) * 2,
@@ -169,13 +177,10 @@ export function buildLevel(seed = 7): Level {
       { x: -1.2, y: -4.5, z: 6 },
       { x: 1.2, y: -4.5, z: 6 },
     ],
-    nest: { x: -8.3, y: floorHeight(-8.3, -7), z: -7 },
-    // The loop passes either side of the pinnacle, so the drone has to steer around it.
-    patrol: [
-      { x: 3, y: -4.5, z: -1 },
-      { x: 13, y: -4, z: -12 },
-      { x: 17, y: -5, z: -2 },
-      { x: 12, y: -3.5, z: 4 },
+    creatures: [
+      // The lingcod guards its egg mass on the floor of the Hollow.
+      { id: 'lingcod', kind: 'lingcod', at: { x: -8.3, y: floorHeight(-8.3, -7), z: -7 } },
+      { id: 'drone', kind: 'drone', at: patrol[0], route: patrol },
     ],
   };
 }

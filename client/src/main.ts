@@ -4,7 +4,8 @@ import { DT, SUITS } from '../../shared/constants';
 import { buildLevel, groundHeight } from '../../shared/level';
 import { pickTarget } from '../../shared/arena';
 import { DiverView } from './diver';
-import { buildNest, DroneView, Effects, LingcodView } from './fight';
+import { VIEWS } from './creatures';
+import { Effects } from './fight';
 import { buildBoulders, buildFloor, buildGodRays, buildKelp, buildMarineSnow, buildScatter, cutaway, PALETTE } from './env';
 import { Hud } from './hud';
 import { applyIsoScene, fitIso, ISO, isoCamera, isoDiverLight, isoOutput, isoPixelRatio } from './iso';
@@ -65,10 +66,11 @@ async function main() {
   const snow = buildMarineSnow();
   scene.add(snow.object);
 
-  const lingcod = new LingcodView();
-  const drone = new DroneView();
+  // Every creature's view is built up front, so a reef reset never adds materials mid-dive.
+  const creatureViews = new Map(level.creatures.map((s) => [s.id, VIEWS[s.kind](s)] as const));
+  for (const v of creatureViews.values()) scene.add(...v.objects);
   const effects = new Effects();
-  scene.add(lingcod.root, drone.root, buildNest(level.nest), ...effects.objects);
+  scene.add(...effects.objects);
 
   const nettles = level.jellies.map((j) => new SeaNettle(j));
   for (const n of nettles) scene.add(n.group);
@@ -142,15 +144,15 @@ async function main() {
     });
 
     const creatures = net.creatureSnapshot();
-    for (const c of creatures) {
-      if (c.kind === 'lingcod') lingcod.update(dt, c); else drone.update(dt, t, c);
+    for (const [id, v] of creatureViews) {
+      const c = creatures.find((x) => x.id === id);
+      v.root.visible = !!c;
+      if (c) v.update(dt, t, c);
     }
-    lingcod.root.visible = creatures.some((c) => c.kind === 'lingcod');
-    drone.root.visible = creatures.some((c) => c.kind === 'drone');
     for (const f of net.fx.splice(0)) {
       if (f.k === 'harpoon' && f.p && f.q) effects.harpoon(f.p, f.q);
       else if (f.k === 'shock' && f.p) effects.shock(f.p);
-      hud.event(f, divers);
+      hud.event(f, divers, creatures);
     }
     effects.update(dt);
 

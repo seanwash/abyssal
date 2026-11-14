@@ -1,6 +1,6 @@
 import { Client, type Room } from '@colyseus/sdk';
 import { DT, SERVER_PORT, TICK_RATE } from '../../shared/constants';
-import type { CreatureKind, Fx } from '../../shared/arena';
+import type { Fx } from '../../shared/arena';
 import type { Level } from '../../shared/level';
 import { stepDiver } from '../../shared/physics';
 import { swimInput, type DiverInput, type DiverSim } from '../../shared/protocol';
@@ -20,7 +20,7 @@ export interface DiverSnapshot {
 
 export interface CreatureSnapshot {
   id: string;
-  kind: CreatureKind;
+  kind: string;
   x: number; y: number; z: number;
   yaw: number; pitch: number;
   mode: number; meter: number; charge: number;
@@ -37,7 +37,7 @@ interface RemoteDiver {
   samples: Sample[];
 }
 
-interface RemoteCreature { kind: CreatureKind; mode: number; meter: number; charge: number; samples: Sample[] }
+interface RemoteCreature { kind: string; mode: number; meter: number; charge: number; samples: Sample[] }
 
 interface ServerDiver {
   name: string; suit: number;
@@ -216,7 +216,7 @@ export class Net {
 
     state.creatures?.forEach((c, id) => {
       let r = this.creatures.get(id);
-      if (!r) { r = { kind: c.kind as CreatureKind, mode: 0, meter: 0, charge: 0, samples: [] }; this.creatures.set(id, r); }
+      if (!r) { r = { kind: c.kind, mode: 0, meter: 0, charge: 0, samples: [] }; this.creatures.set(id, r); }
       const last = r.samples[r.samples.length - 1];
       // A reef reset moves a creature home in one tick; drop the old samples so it doesn't glide there.
       if (last && Math.hypot(c.x - last.x, c.y - last.y, c.z - last.z) > 3) r.samples.length = 0;

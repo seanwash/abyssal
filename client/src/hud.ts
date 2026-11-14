@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { SUITS } from '../../shared/constants';
-import { AIR_MAX, LING, PHASE, RANGE, type Fx, type Target } from '../../shared/arena';
+import { AIR_MAX, PHASE, type Fx, type Target } from '../../shared/arena';
+import { SPECIES } from '../../shared/creatures';
 import type { CreatureSnapshot, DiverSnapshot, Net, NetStatus } from './net';
 
 const NUMERALS = ['I', 'II', 'III', 'IV'];
@@ -102,16 +103,16 @@ export class Hud {
   }
 
   /** Shows a short line across the top for something that just happened in the fight. */
-  event(f: Fx, divers: DiverSnapshot[]) {
-    const who = nameOf(f.id, divers), by = nameOf(f.by, divers);
+  event(f: Fx, divers: DiverSnapshot[], creatures: CreatureSnapshot[]) {
+    const who = nameOf(f.id, divers, creatures), by = nameOf(f.by, divers, creatures);
     const line = {
-      calmed: `${by} calmed the lingcod. Its violet glow drains away.`,
-      wrecked: `${by} wrecked the drone.`,
+      calmed: `${by} calmed ${who}. Its violet glow drains away.`,
+      wrecked: `${by} wrecked ${who}.`,
       down: `${who} ${who === 'You' ? 'are' : 'is'} out of air!`,
       revived: `${by} buddy-breathed ${who === 'You' ? 'you' : who} back up.`,
       clear: `Reef clear in ${Math.round(f.t ?? 0)} s. It resets shortly.`,
       wiped: 'Both divers are down. The dive starts over.',
-      reset: 'The lingcod is sick again, and a new drone is out.',
+      reset: 'The reef resets: the sick animals and the machines are back.',
     }[f.k as string];
     if (!line) return;
     this.banner.innerHTML = line;
@@ -131,33 +132,36 @@ export class Hud {
       return `translate(${(this.v.x * 0.5 + 0.5) * w}px, ${(-this.v.y * 0.5 + 0.5) * h}px) translate(-50%, -100%)`;
     };
 
-    // The meter follows the downed diver being revived, else the lingcod's calm, else the drone's hull.
+    // The meter follows the downed diver being revived, else the targeted machine's hull, else a sick animal's calm.
     const downed = divers.find((d) => d.down);
-    const ling = creatures.find((c) => c.kind === 'lingcod');
+    const dist = (c: CreatureSnapshot) => Math.hypot(c.x - me.x, c.y - me.y, c.z - me.z);
+    const sick = creatures
+      .filter((c) => SPECIES[c.kind]?.action === 'calm' && !SPECIES[c.kind].done(c))
+      .sort((a, b) => dist(a) - dist(b))[0];
+    const tc = target && target.kind !== 'buddy' ? creatures.find((x) => x.id === target.id) : undefined;
     let label = '', anchor: { x: number; y: number; z: number } | null = null, fill = 0, kind = '';
     if (target) {
-      const c = creatures.find((x) => x.id === target.id);
       const d = divers.find((x) => x.id === target.id);
-      const lungeing = c && c.kind === 'lingcod' && (c.mode === LING.coil || c.mode === LING.lunge);
       label = target.kind === 'buddy' ? 'Hold <b>F</b> to buddy-breathe'
-        : target.kind === 'lingcod' ? (lungeing ? 'Too agitated: wait for it to settle' : 'Hold <b>F</b> to calm')
+        : target.kind === 'calm' ? (tc && SPECIES[tc.kind].busy(tc) ? 'Too agitated: wait for it to settle' : 'Hold <b>F</b> to calm')
         : 'Press <b>F</b> to harpoon';
-      anchor = d ?? c ?? null;
-    } else if (ling && ling.mode !== LING.calm && !me.down) {
-      const dist = Math.hypot(ling.x - me.x, ling.y - me.y, ling.z - me.z);
-      if (dist < RANGE.calm * 2.5) {
-        label = dist > RANGE.calm ? `Swim closer to calm <span class="dist">${(dist - RANGE.calm).toFixed(1)} m</span>` : 'Turn toward it to calm';
-        anchor = ling;
+      anchor = d ?? tc ?? null;
+    } else if (sick && !me.down) {
+      const range = SPECIES[sick.kind].range, d = dist(sick);
+      if (d < range * 2.5) {
+        label = d > range ? `Swim closer to calm <span class="dist">${(d - range).toFixed(1)} m</span>` : 'Turn toward it to calm';
+        anchor = sick;
       }
     }
-    if (downed) { anchor = downed; fill = downed.revive; kind = 'revive'; }
-    else if (target?.kind === 'drone') { const c = creatures.find((x) => x.id === target.id)!; fill = c.meter; kind = 'hull'; }
-    else if (ling && ling.mode !== LING.calm && (ling.meter > 0 || target?.kind === 'lingcod')) { anchor = anchor ?? ling; fill = ling.meter; kind = 'calm'; }
+    const calming = target?.kind === 'calm' ? tc : sick;
+    let meterAnchor: { x: number; y: number; z: number } | undefined;
+    if (downed) { anchor = downed; meterAnchor = downed; fill = downed.revive; kind = 'revive'; }
+    else if (target?.kind === 'harpoon' && tc) { meterAnchor = tc; fill = tc.meter; kind = 'hull'; }
+    else if (calming && (calming.meter > 0 || target?.kind === 'calm')) { anchor = anchor ?? calming; meterAnchor = calming; fill = calming.meter; kind = 'calm'; }
     this.prompt.innerHTML = label;
     this.prompt.classList.toggle('show', !!label && !!anchor);
     this.prompt.classList.toggle('acting', acting);
     if (anchor) this.prompt.style.transform = at(anchor, 1.2);
-    const meterAnchor = kind === 'calm' ? ling! : kind === 'hull' ? creatures.find((x) => x.id === target!.id)! : downed;
     this.meter.classList.toggle('show', !!kind && !!meterAnchor);
     this.meter.dataset.kind = kind;
     this.meterFill.style.width = `${(fill * 100).toFixed(1)}%`;
@@ -174,11 +178,10 @@ export class Hud {
   }
 }
 
-const NAMES: Record<string, string> = { lingcod: 'the lingcod', drone: 'the drone' };
-
-function nameOf(id: string | undefined, divers: DiverSnapshot[]) {
+function nameOf(id: string | undefined, divers: DiverSnapshot[], creatures: CreatureSnapshot[]) {
   if (!id) return '';
-  if (NAMES[id]) return NAMES[id];
+  const c = creatures.find((x) => x.id === id);
+  if (c) return SPECIES[c.kind]?.name ?? c.kind;
   const d = divers.find((x) => x.id === id);
   return d ? (d.local ? 'You' : escape(d.name)) : 'Your buddy';
 }

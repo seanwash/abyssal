@@ -72,9 +72,15 @@ server acknowledged every input (`npx tsx bots/smoke.ts`).
 | Path | Role |
 | --- | --- |
 | `shared/` | Level layout, constants and diver movement and collision, used identically by client and server |
-| `shared/arena.ts` | The fight: air, the action key's target, the lingcod and drone, buddy breathing. The server runs it |
+| `shared/arena.ts` | The fight: air, buddy breathing, the action key's target and the reef's phases. It runs every creature through one interface. The server runs it |
+| `shared/creatures/` | One file per creature's rules (`lingcod.ts`, `drone.ts`), the `Species` interface they share in `common.ts`, and the registry in `index.ts` |
 | `server/buddy.ts` | The bot buddy that fills the second seat |
-| `client/src/fight.ts` | Procedural lingcod, drone, egg mass and fight effects |
+| `client/src/creatures/` | One file per creature's look, registered by kind in `index.ts` |
+| `client/src/fight.ts` | Harpoon and shock effects, and drawing helpers the creature views share |
+
+To add a creature: write its rules in `shared/creatures/<kind>.ts` and its look in `client/src/creatures/<kind>.ts`,
+register both by kind, and place it in the level's `creatures` list. The arena, the network and the HUD need no
+change.
 | `server/` | Colyseus room: 30 Hz fixed step, applies queued inputs, broadcasts diver state |
 | `client/src/net.ts` | Predicts your own diver, reconciles with the server, interpolates the other diver |
 | `client/src/nettle.ts` | Procedural *Chrysaora fuscescens*: scalloped bell, oral arms, tentacles, pulse |
