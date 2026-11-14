@@ -24,9 +24,10 @@ Useful URL options:
 | Option | Effect |
 | --- | --- |
 | `?name=Jaime` | Diver name shown to the other player |
+| `?lines=600` | Render about this many rows before upscaling to the screen (default 450) |
+| `?fps=0` | Draw on every display refresh instead of capping at 60 fps |
 | `?webgl` | Force the WebGL2 backend instead of WebGPU |
 | `?scale=0.5` | Render at lower resolution on a slow machine |
-| `?shadows=0` | Turn off sun shadows |
 | `?server=ws://host:2567` | Point at another dive server |
 
 If the server can't be reached, the client dives solo after a few seconds.
@@ -61,6 +62,7 @@ server acknowledged every input (`npx tsx bots/smoke.ts`).
 | `client/src/nettle.ts` | Procedural *Chrysaora fuscescens*: scalloped bell, oral arms, tentacles, pulse |
 | `client/src/env.ts` | Seafloor with caustics, granite boulders, giant kelp, scatter, light shafts, marine snow |
 | `client/src/diver.ts` | Procedural diver with headlamp, fin kick and exhaled bubbles |
+| `client/src/iso.ts` | Isometric view: orthographic camera, low-resolution pixels, the diver's light radius, bloom |
 | `client/src/hud.ts` | Plate-style specimen card, specimen label, diver names |
 
 Rendering uses three.js `WebGPURenderer` with TSL node materials; browsers without WebGPU fall

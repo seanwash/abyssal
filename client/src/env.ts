@@ -1,8 +1,8 @@
 import * as THREE from 'three/webgpu';
 import {
-  Fn, attribute, color, cos, float, fract, instancedBufferAttribute, length, mix, mod, mx_fractal_noise_float,
+  Fn, attribute, color, cos, float, instancedBufferAttribute, length, mix, mod, mx_fractal_noise_float,
   mx_noise_float, mx_worley_noise_vec2, normalWorld, oneMinus, positionLocal, positionWorld, pow, screenCoordinate,
-  sin, smoothstep, step, time, uniform, uv, vec2, vec3, dot, max, min, bumpMap,
+  sin, smoothstep, step, floor, positionView, time, uniform, uv, vec2, vec3, max, bumpMap,
 } from 'three/tsl';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { floorHeight, type Level } from '../../shared/level';
@@ -10,7 +10,6 @@ import { mulberry32, valueNoise2 } from '../../shared/rng';
 import { SURFACE_Y } from '../../shared/constants';
 
 export const PALETTE = {
-  fog: new THREE.Color(0x0b3846),
   deep: new THREE.Color(0x0e2a30),
   sandLight: new THREE.Color(0xc9b994),
   sandDark: new THREE.Color(0x7c7558),
@@ -23,10 +22,10 @@ export const PALETTE = {
   sun: new THREE.Color(0xfff0d2),
 };
 
-/** Shared uniforms the scene uses to keep the local diver visible through kelp. */
+/** The local diver in world and view space, for the light radius and the kelp cut-away. */
 export const cutaway = {
   diver: uniform(new THREE.Vector3(0, -6, 0)),
-  camDir: uniform(new THREE.Vector2(0, 1)),
+  diverView: uniform(new THREE.Vector3(0, 0, -40)),
 };
 
 const caustics = Fn(() => {
@@ -43,22 +42,16 @@ const caustics = Fn(() => {
   return la.mul(lb.mul(0.6).add(0.4)).add(la.mul(lb).mul(0.8)).mul(patches).mul(depthFade).mul(up);
 });
 
-/** Interleaved gradient noise used for dithered cut-away fades without transparency sorting. */
-const dither = Fn(() => fract(float(52.9829189).mul(fract(screenCoordinate.x.mul(0.06711056).add(screenCoordinate.y.mul(0.00583715))))));
-
-const occlusionFade = Fn(() => {
-  const rel = positionWorld.xz.sub(cutaway.diver.xz);
-  const along = dot(rel, cutaway.camDir);
-  const perp = length(rel.sub(cutaway.camDir.mul(along)));
-  const inFront = smoothstep(-0.5, 1.0, along);
-  const near = oneMinus(smoothstep(1.4, 3.0, perp));
-  const above = smoothstep(cutaway.diver.y.sub(1.2), cutaway.diver.y.add(0.3), positionWorld.y);
-  const occl = inFront.mul(near).mul(above);
-  const reach = smoothstep(7.0, 15.0, length(rel.sub(cutaway.camDir.mul(3.0)))).mul(30.0);
-  const cut = cutaway.diver.y.add(2.4).add(reach);
-  const high = smoothstep(cut, cut.add(0.8), positionWorld.y);
-  const fade = min(oneMinus(occl), oneMinus(high));
-  return step(dither(), fade);
+/**
+ * Kelp cut-away: kelp nearer the camera than the diver is removed close to the diver on screen
+ * and drawn as a 50% checkerboard just outside that, like see-through walls.
+ */
+const screenDoor = Fn(() => {
+  const r = length(positionView.xy.sub(cutaway.diverView.xy));
+  const inFront = step(cutaway.diverView.z.add(0.4), positionView.z);
+  const checker = mod(floor(screenCoordinate.x).add(floor(screenCoordinate.y)), 2.0);
+  const hidden = max(step(r, 1.3), step(r, 2.5).mul(checker));
+  return oneMinus(inFront.mul(hidden));
 });
 
 export function buildFloor(level: Level) {
@@ -82,7 +75,6 @@ export function buildFloor(level: Level) {
   mat.normalNode = bumpMap(ripple.mul(0.6).add(fine.mul(0.25)).add(detritus.mul(0.3)), float(0.6));
   mat.emissiveNode = caustics().mul(color(0xcff2d2)).mul(0.32);
   const mesh = new THREE.Mesh(geo, mat);
-  mesh.receiveShadow = true;
   return mesh;
 }
 
@@ -124,8 +116,6 @@ export function buildBoulders(level: Level) {
     m.position.set(b.x, b.y, b.z);
     m.scale.set(b.r, b.r * b.sy, b.r * (0.85 + (b.seed % 7) / 20));
     m.rotation.y = b.rot;
-    m.castShadow = true;
-    m.receiveShadow = true;
     group.add(m);
   }
   group.add(buildAnemones(level));
@@ -226,11 +216,9 @@ export function buildKelp(level: Level) {
   const lift = smoothstep(-12.0, -1.0, positionWorld.y);
   mat.colorNode = vcol;
   mat.emissiveNode = vcol.mul(color(0xffd27a)).mul(lift.mul(0.22).add(0.05));
-  mat.opacityNode = occlusionFade();
+  mat.opacityNode = screenDoor();
   mat.alphaTest = 0.5;
   const mesh = new THREE.Mesh(geo, mat);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
   mesh.frustumCulled = false;
   return mesh;
 }
@@ -320,14 +308,14 @@ export function buildGodRays() {
   return group;
 }
 
-/** Marine snow: drifting organic particles that wrap around the camera target. */
+/** Marine snow lit as glowing plankton: drifting particles that wrap around the camera target. */
 export function buildMarineSnow(count = 2600) {
   const rnd = mulberry32(17);
   const base = new Float32Array(count * 3);
   const sizes = new Float32Array(count);
   for (let i = 0; i < count; i++) {
     base[i * 3] = rnd() * 40; base[i * 3 + 1] = rnd() * 14; base[i * 3 + 2] = rnd() * 34;
-    sizes[i] = 0.018 + rnd() * rnd() * 0.06;
+    sizes[i] = 0.03 + rnd() * rnd() * 0.1;
   }
   const target = uniform(new THREE.Vector3());
   const box = vec3(40, 14, 34);
@@ -335,11 +323,11 @@ export function buildMarineSnow(count = 2600) {
   const size = instancedBufferAttribute(new THREE.InstancedBufferAttribute(sizes, 1));
   const drift = vec3(time.mul(0.08), time.mul(-0.12), time.mul(0.05));
   const wrapped = vec3(mod(b.add(drift).sub(target).add(box.mul(0.5)), box)).sub(box.mul(0.5)).add(target);
-  const mat = new THREE.SpriteNodeMaterial({ transparent: true, depthWrite: false });
+  const mat = new THREE.SpriteNodeMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
   mat.positionNode = wrapped;
   mat.scaleNode = size;
   const d = length(uv().sub(vec2(0.5)));
-  mat.colorNode = color(0xdde8d6);
+  mat.colorNode = color(0x7af2d8).mul(1.6);
   mat.opacityNode = smoothstep(0.5, 0.1, d).mul(0.55);
   const sprite = new THREE.Sprite(mat);
   sprite.count = count;
@@ -375,8 +363,6 @@ export function buildScatter(level: Level) {
       cobbles.setMatrixAt(n++, m.compose(p, q, s));
     }
   }
-  cobbles.castShadow = true;
-  cobbles.receiveShadow = true;
 
   const starShape = new THREE.Shape();
   for (let i = 0; i <= 10; i++) {
@@ -400,7 +386,6 @@ export function buildScatter(level: Level) {
     stars.setMatrixAt(i, m.compose(p, q, s));
     stars.setColorAt(i, tint.setHSL(0.02 + rnd() * 0.06, 0.7, 0.4 + rnd() * 0.15));
   }
-  stars.receiveShadow = true;
 
   const shellGeo = new THREE.SphereGeometry(1, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.35);
   const shellMat = new THREE.MeshStandardNodeMaterial({ roughness: 0.5, side: THREE.DoubleSide });

@@ -182,7 +182,7 @@ export class SeaNettle {
   }
 
   private bellMaterial(inner: boolean) {
-    const m = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+    const m = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false });
     m.positionNode = this.squeezeNode();
     const u = uv().x, v = uv().y;
     const f = fresnel();
@@ -206,7 +206,7 @@ export class SeaNettle {
   }
 
   private armMaterial() {
-    const m = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+    const m = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false });
     const t = attribute('aT', 'float');
     const e = attribute('aEdge', 'float');
     const sway = sin(time.mul(0.7).add(t.mul(5.0))).mul(t).mul(0.35);
@@ -219,7 +219,7 @@ export class SeaNettle {
   }
 
   private tentacleMaterial() {
-    const m = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+    const m = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
     const t = attribute('aT', 'float');
     const i = attribute('aIdx', 'float');
     const wave = sin(time.mul(0.9).add(i.mul(1.7)).add(t.mul(6.0))).mul(pow(t, 1.2)).mul(0.55);

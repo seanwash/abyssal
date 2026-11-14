@@ -87,7 +87,6 @@ export class DiverView {
       this.body.add(arm);
     }
 
-    for (const m of this.body.children) m.traverse((o) => { o.castShadow = true; });
     this.root.add(this.body);
 
     this.lamp = new THREE.SpotLight(0xfff1d6, 60, 16, 0.42, 0.55, 1.4);

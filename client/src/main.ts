@@ -1,12 +1,12 @@
 import * as THREE from 'three/webgpu';
-import { color, length, mix, pass, screenUV, smoothstep, vec2, float } from 'three/tsl';
-import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+import { pass } from 'three/tsl';
 import { DT } from '../../shared/constants';
 import { buildLevel } from '../../shared/level';
 import { initPhysics } from '../../shared/physics';
 import { DiverView } from './diver';
 import { buildBoulders, buildFloor, buildGodRays, buildKelp, buildMarineSnow, buildScatter, cutaway, PALETTE } from './env';
 import { Hud } from './hud';
+import { applyIsoScene, fitIso, ISO, isoCamera, isoDiverLight, isoOutput, isoPixelRatio } from './iso';
 import { readSwim } from './input';
 import { Net, type DiverSnapshot } from './net';
 import { SeaNettle } from './nettle';
@@ -14,21 +14,22 @@ import './style.css';
 
 const params = new URLSearchParams(location.search);
 
-const CAMERA = {
-  yaw: THREE.MathUtils.degToRad(32),
-  pitch: THREE.MathUtils.degToRad(40),
-  distance: 13,
-  fov: 34,
-};
+/** Frames per second to draw; 0 draws on every display refresh. */
+const FPS_CAP = Number(params.get('fps') ?? 60);
+
+function pixelRatio() {
+  if (params.has('scale')) return Number(params.get('scale'));
+  return isoPixelRatio(Number(params.get('lines') ?? ISO.lines));
+}
 
 const yieldToBrowser = () => new Promise((resolve) => setTimeout(resolve));
 
-function placeCamera(camera: THREE.PerspectiveCamera, target: THREE.Vector3) {
-  const cp = Math.cos(CAMERA.pitch);
+function placeCamera(camera: THREE.Camera, target: THREE.Vector3) {
+  const cp = Math.cos(ISO.pitch);
   camera.position.set(
-    target.x + Math.sin(CAMERA.yaw) * cp * CAMERA.distance,
-    target.y + Math.sin(CAMERA.pitch) * CAMERA.distance,
-    target.z + Math.cos(CAMERA.yaw) * cp * CAMERA.distance,
+    target.x + Math.sin(ISO.yaw) * cp * ISO.distance,
+    target.y + Math.sin(ISO.pitch) * ISO.distance,
+    target.z + Math.cos(ISO.yaw) * cp * ISO.distance,
   );
   camera.lookAt(target);
 }
@@ -37,31 +38,22 @@ async function main() {
   await initPhysics();
   const level = buildLevel(7);
 
-  const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: params.has('webgl') });
-  renderer.setPixelRatio(Number(params.get('scale') ?? Math.min(devicePixelRatio, 2)));
+  const renderer = new THREE.WebGPURenderer({ antialias: false, forceWebGL: params.has('webgl') });
+  renderer.setPixelRatio(pixelRatio());
   renderer.setSize(innerWidth, innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.95;
-  renderer.shadowMap.enabled = params.get('shadows') !== '0';
-  renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.domElement.style.imageRendering = 'pixelated';
   document.body.appendChild(renderer.domElement);
   await renderer.init();
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(PALETTE.fog, 0.05);
-  scene.backgroundNode = mix(color(0x081a1f), color(0x2b5b58), smoothstep(0.0, 1.0, screenUV.y.oneMinus()));
+  applyIsoScene(scene);
 
-  const camera = new THREE.PerspectiveCamera(CAMERA.fov, innerWidth / innerHeight, 0.5, 120);
+  const camera = isoCamera();
 
-  scene.add(new THREE.HemisphereLight(0x6fb3c4, 0x1a2420, 0.6));
-  const sun = new THREE.DirectionalLight(PALETTE.sun, 2.1);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -22; sun.shadow.camera.right = 22;
-  sun.shadow.camera.top = 22; sun.shadow.camera.bottom = -22;
-  sun.shadow.camera.near = 1; sun.shadow.camera.far = 60;
-  sun.shadow.bias = -0.0008;
-  sun.shadow.normalBias = 0.04;
+  scene.add(new THREE.HemisphereLight(0x6fb3c4, 0x1a2420, 0.35));
+  const sun = new THREE.DirectionalLight(PALETTE.sun, 0.9);
   scene.add(sun, sun.target);
 
   // Kelp generation is the longest synchronous step, so give the browser a turn on either side of it.
@@ -76,14 +68,13 @@ async function main() {
   const nettles = level.jellies.map((j) => new SeaNettle(j));
   for (const n of nettles) scene.add(n.group);
   const hero = nettles.find((_, i) => level.jellies[i].hero) ?? null;
+  const diverLight = isoDiverLight();
+  scene.add(diverLight);
 
   const pipeline = new THREE.RenderPipeline(renderer);
   const scenePass = pass(scene, camera);
   const sceneColor = scenePass.getTextureNode('output');
-  const glow = bloom(sceneColor, 0.85, 0.55, 0.62);
-  const d = length(screenUV.sub(vec2(0.5)).mul(vec2(1.25, 1.0)));
-  const vignette = mix(float(1.0), float(0.38), smoothstep(0.3, 0.85, d));
-  pipeline.outputNode = sceneColor.add(glow).mul(vignette);
+  pipeline.outputNode = isoOutput(sceneColor);
 
   const hud = new Hud();
   const net = new Net(level);
@@ -119,12 +110,17 @@ async function main() {
   let frameMs = 0;
 
   addEventListener('resize', () => {
-    camera.aspect = innerWidth / innerHeight;
-    camera.updateProjectionMatrix();
+    fitIso(camera);
+    renderer.setPixelRatio(pixelRatio());
     renderer.setSize(innerWidth, innerHeight);
   });
 
-  const frame = () => {
+  let last = 0;
+  const frame = (now: number) => {
+    // Skipping refreshes that arrive sooner than 60% of the frame interval halves a 120 Hz display
+    // to 60 fps while 60 and 90 Hz displays still draw every refresh.
+    if (FPS_CAP && now - last < 600 / FPS_CAP) { requestAnimationFrame(frame); return; }
+    last = now;
     const f0 = performance.now();
     clock.update();
     const dt = Math.min(0.1, clock.getDelta());
@@ -134,7 +130,7 @@ async function main() {
     acc += dt;
     let steps = 0;
     while (acc >= DT && steps < 10) {
-      net.step(readSwim(CAMERA.yaw));
+      net.step(readSwim(ISO.yaw));
       acc -= DT;
       steps++;
     }
@@ -154,8 +150,10 @@ async function main() {
     placeCamera(camera, camTarget);
 
     cutaway.diver.value.set(me.x, me.y, me.z);
-    cutaway.camDir.value.set(Math.sin(CAMERA.yaw), Math.cos(CAMERA.yaw));
+    camera.updateMatrixWorld();
+    cutaway.diverView.value.set(me.x, me.y, me.z).applyMatrix4(camera.matrixWorldInverse);
     snow.target.value.copy(camTarget);
+    diverLight.position.set(me.x, me.y + 1.6, me.z);
     sun.position.set(camTarget.x - 8, 18, camTarget.z + 12);
     sun.target.position.copy(camTarget);
 
