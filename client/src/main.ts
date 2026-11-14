@@ -1,14 +1,13 @@
 import * as THREE from 'three/webgpu';
 import { pass } from 'three/tsl';
-import { DT } from '../../shared/constants';
-import { buildLevel } from '../../shared/level';
-import { initPhysics } from '../../shared/physics';
+import { DT, SUITS } from '../../shared/constants';
+import { buildLevel, groundHeight } from '../../shared/level';
 import { DiverView } from './diver';
 import { buildBoulders, buildFloor, buildGodRays, buildKelp, buildMarineSnow, buildScatter, cutaway, PALETTE } from './env';
 import { Hud } from './hud';
 import { applyIsoScene, fitIso, ISO, isoCamera, isoDiverLight, isoOutput, isoPixelRatio } from './iso';
 import { readSwim } from './input';
-import { Net, type DiverSnapshot } from './net';
+import { Net } from './net';
 import { SeaNettle } from './nettle';
 import './style.css';
 
@@ -35,7 +34,6 @@ function placeCamera(camera: THREE.Camera, target: THREE.Vector3) {
 }
 
 async function main() {
-  await initPhysics();
   const level = buildLevel(7);
 
   const renderer = new THREE.WebGPURenderer({ antialias: false, forceWebGL: params.has('webgl') });
@@ -69,7 +67,8 @@ async function main() {
   for (const n of nettles) scene.add(n.group);
   const hero = nettles.find((_, i) => level.jellies[i].hero) ?? null;
   const diverLight = isoDiverLight();
-  scene.add(diverLight);
+  const partnerLight = isoDiverLight();
+  scene.add(diverLight, partnerLight);
 
   const pipeline = new THREE.RenderPipeline(renderer);
   const scenePass = pass(scene, camera);
@@ -81,25 +80,14 @@ async function main() {
   const name = params.get('name') ?? '';
   await net.connect(name);
 
-  const views = new Map<string, DiverView>();
-  const syncViews = (divers: DiverSnapshot[]) => {
-    const live = new Set<string>();
-    for (const d of divers) {
-      live.add(d.id);
-      let v = views.get(d.id);
-      if (v && v.suit !== d.suit) { v.dispose(); v = undefined; }
-      if (!v) {
-        v = new DiverView(d.suit);
-        views.set(d.id, v);
-        scene.add(v.root, v.bubbleMesh);
-      }
-    }
-    for (const [id, v] of views) if (!live.has(id)) { v.dispose(); views.delete(id); }
-  };
-
-  // Each diver's headlamp is a light, so it changes every lit material's shader; add them before
-  // compiling. compileAsync spreads shader builds over frames instead of blocking the first render.
-  syncViews(net.snapshot(0));
+  // One view per suit, both always in the scene, so a diver joining or leaving never changes the
+  // number of lights. compileAsync spreads shader builds over frames instead of blocking the first render.
+  const views = SUITS.map((_, suit) => {
+    const v = new DiverView(suit);
+    v.setPresent(false);
+    scene.add(v.root, ...v.worldObjects);
+    return v;
+  });
   const camTarget = new THREE.Vector3(net.sim.x, net.sim.y, net.sim.z);
   placeCamera(camera, camTarget);
   await scenePass.compileAsync(renderer);
@@ -138,12 +126,14 @@ async function main() {
     net.decayOffset(dt);
 
     const divers = net.snapshot(acc / DT);
-    syncViews(divers);
-    for (const d of divers) {
-      views.get(d.id)!.update(dt, t, new THREE.Vector3(d.x, d.y, d.z), d.yaw, new THREE.Vector3(d.vx, d.vy, d.vz));
-    }
+    views.forEach((v, suit) => {
+      const d = divers.find((x) => x.suit === suit);
+      v.setPresent(!!d);
+      if (d) v.update(dt, t, new THREE.Vector3(d.x, d.y, d.z), d.yaw, new THREE.Vector3(d.vx, d.vy, d.vz), groundHeight(level, d.x, d.z, d.y));
+    });
 
     const me = divers[0];
+    const partner = divers.find((d) => !d.local);
     const lead = new THREE.Vector3(me.vx, 0, me.vz).multiplyScalar(0.35);
     const goal = new THREE.Vector3(me.x, me.y, me.z).add(lead);
     camTarget.lerp(goal, 1 - Math.exp(-3.5 * dt));
@@ -153,7 +143,11 @@ async function main() {
     camera.updateMatrixWorld();
     cutaway.diverView.value.set(me.x, me.y, me.z).applyMatrix4(camera.matrixWorldInverse);
     snow.target.value.copy(camTarget);
+    if (partner) cutaway.partner.value.set(partner.x, partner.y, partner.z);
+    else cutaway.partner.value.set(0, 1e4, 0);
     diverLight.position.set(me.x, me.y + 1.6, me.z);
+    partnerLight.position.copy(cutaway.partner.value).y += 1.6;
+    partnerLight.intensity = partner ? diverLight.intensity : 0;
     sun.position.set(camTarget.x - 8, 18, camTarget.z + 12);
     sun.target.position.copy(camTarget);
 

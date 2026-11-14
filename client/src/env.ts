@@ -22,9 +22,13 @@ export const PALETTE = {
   sun: new THREE.Color(0xfff0d2),
 };
 
-/** The local diver in world and view space, for the light radius and the kelp cut-away. */
+/**
+ * The local diver in world and view space, for the light radius and the kelp cut-away, and the
+ * other diver in world space for their light radius. With no other diver, `partner` sits far above the water.
+ */
 export const cutaway = {
   diver: uniform(new THREE.Vector3(0, -6, 0)),
+  partner: uniform(new THREE.Vector3(0, 1e4, 0)),
   diverView: uniform(new THREE.Vector3(0, 0, -40)),
 };
 
@@ -43,8 +47,8 @@ const caustics = Fn(() => {
 });
 
 /**
- * Kelp cut-away: kelp nearer the camera than the diver is removed close to the diver on screen
- * and drawn as a 50% checkerboard just outside that, like see-through walls.
+ * Cut-away for kelp and rock: anything nearer the camera than the diver is removed close to the
+ * diver on screen and drawn as a 50% checkerboard just outside that, like see-through walls.
  */
 const screenDoor = Fn(() => {
   const r = length(positionView.xy.sub(cutaway.diverView.xy));
@@ -110,6 +114,8 @@ export function buildBoulders(level: Level) {
   mat.colorNode = mix(granite, encrust.mul(crust.mul(0.5).add(0.6)), encrustMask.mul(0.7));
   mat.emissiveNode = caustics().mul(color(0xcff2d2)).mul(0.1);
   mat.normalNode = bumpMap(mx_fractal_noise_float(p.mul(2.2), 3, 2.0, 0.5).add(speck.mul(0.2)), float(0.25));
+  mat.opacityNode = screenDoor();
+  mat.alphaTest = 0.5;
   const geos = [0, 1, 2, 3].map((s) => rockGeometry(s * 13 + 5));
   for (const b of level.boulders) {
     const m = new THREE.Mesh(geos[b.seed % geos.length], mat);
@@ -130,6 +136,8 @@ function buildAnemones(level: Level) {
   const mat = new THREE.MeshStandardNodeMaterial({ roughness: 0.6 });
   mat.colorNode = color(0xd8557a);
   mat.emissiveNode = color(0x6a1834).mul(0.6);
+  mat.opacityNode = screenDoor();
+  mat.alphaTest = 0.5;
   const mesh = new THREE.InstancedMesh(geo, mat, count);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), pos = new THREE.Vector3();
   const tint = new THREE.Color();

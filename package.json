@@ -23,7 +23,6 @@
     "@colyseus/schema": "^5.0.48",
     "@colyseus/sdk": "^0.18.10",
     "@colyseus/ws-transport": "^0.18.5",
-    "@dimforge/rapier3d-compat": "^0.21.0",
     "colyseus": "^0.18.12",
     "three": "^0.187.0"
   },

@@ -17,7 +17,12 @@ This starts the dive server on port 2567 and the game on port 5173. Open
 `http://<this computer's IP>:5173` (Vite prints the Network address). The first two players
 join the same dive.
 
-Controls: **WASD** or arrows swim, **Space** rises, **Shift** sinks. A gamepad's left stick works too.
+Controls: **WASD** or the arrow keys swim, **Space** or **E** rises, **Shift** or **Q** sinks. A gamepad's left stick works too.
+
+The dive is a small test reef: a reef flat at about 8 m, a sand channel (the Hollow) dropping to about 14 m,
+a boulder pinnacle that rises to within 2 m of the surface, and an arch to swim under. Each diver's lamp
+lights by 3D distance, so the floor only shows when you swim down to it. A shadow and a plumb line under
+each diver show its height above the ground.
 
 Useful URL options:
 
@@ -56,13 +61,13 @@ server acknowledged every input (`npx tsx bots/smoke.ts`).
 
 | Path | Role |
 | --- | --- |
-| `shared/` | Level layout, constants and Rapier movement, used identically by client and server |
+| `shared/` | Level layout, constants and diver movement and collision, used identically by client and server |
 | `server/` | Colyseus room: 30 Hz fixed step, applies queued inputs, broadcasts diver state |
 | `client/src/net.ts` | Predicts your own diver, reconciles with the server, interpolates the other diver |
 | `client/src/nettle.ts` | Procedural *Chrysaora fuscescens*: scalloped bell, oral arms, tentacles, pulse |
 | `client/src/env.ts` | Seafloor with caustics, granite boulders, giant kelp, scatter, light shafts, marine snow |
-| `client/src/diver.ts` | Procedural diver with headlamp, fin kick and exhaled bubbles |
-| `client/src/iso.ts` | Isometric view: orthographic camera, low-resolution pixels, the diver's light radius, bloom |
+| `client/src/diver.ts` | Procedural diver with headlamp, plumb line, fin kick and exhaled bubbles |
+| `client/src/iso.ts` | Isometric view: orthographic camera, low-resolution pixels, each diver's light radius and drop shadow, bloom |
 | `client/src/hud.ts` | Plate-style specimen card, specimen label, diver names |
 
 Rendering uses three.js `WebGPURenderer` with TSL node materials; browsers without WebGPU fall

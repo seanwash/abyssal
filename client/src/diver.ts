@@ -6,6 +6,8 @@ import {
 import { SUITS } from '../../shared/constants';
 
 const BUBBLES = 40;
+const RING = 12;
+const RING_RADIUS = 0.16;
 
 function rimMaterial(base: THREE.ColorRepresentation, rim: THREE.ColorRepresentation, rough = 0.6, metal = 0) {
   const b = new THREE.Color(base), r = new THREE.Color(rim);
@@ -24,6 +26,9 @@ export class DiverView {
   private legs: THREE.Group[] = [];
   private arms: THREE.Group[] = [];
   private bubbles: THREE.InstancedMesh;
+  private plumb: THREE.LineSegments;
+  private plumbOpacity = uniform(0);
+  private lampIntensity: number;
   private bubbleState: { p: THREE.Vector3; v: number; age: number; life: number; s: number }[] = [];
   private nextBreath = 0;
   private kick = 0;
@@ -93,7 +98,9 @@ export class DiverView {
     this.lamp.position.set(0, 0.12, 0.72);
     this.lamp.target.position.set(0, -1.6, 4.5);
     this.body.add(this.lamp, this.lamp.target);
+    this.lampIntensity = this.lamp.intensity;
     this.body.add(this.beamCone());
+    this.plumb = this.plumbLine();
 
     this.bubbles = new THREE.InstancedMesh(
       new THREE.SphereGeometry(1, 10, 8),
@@ -104,13 +111,26 @@ export class DiverView {
     for (let i = 0; i < BUBBLES; i++) this.bubbleState.push({ p: new THREE.Vector3(0, -999, 0), v: 0, age: 9, life: 1, s: 0 });
   }
 
-  /** Bubbles live in world space so they rise straight up while the diver moves on. */
-  get bubbleMesh() {
-    return this.bubbles;
+  /** Bubbles and the plumb line live in world space, so they stay vertical while the diver moves on. */
+  get worldObjects() {
+    return [this.bubbles, this.plumb];
   }
 
-  update(dt: number, t: number, pos: THREE.Vector3, yaw: number, vel: THREE.Vector3) {
+  /**
+   * Shows or hides this diver. A hidden diver keeps its headlamp in the scene at zero intensity,
+   * because adding or removing a light recompiles every lit material and stalls a frame.
+   */
+  setPresent(present: boolean) {
+    for (const c of this.body.children) if (c !== this.lamp && c !== this.lamp.target) c.visible = present;
+    this.lamp.intensity = present ? this.lampIntensity : 0;
+    this.bubbles.visible = present;
+    this.plumb.visible = present;
+  }
+
+  /** `ground` is the height of the first surface straight below the diver. */
+  update(dt: number, t: number, pos: THREE.Vector3, yaw: number, vel: THREE.Vector3, ground: number) {
     this.root.position.copy(pos);
+    this.updatePlumb(pos, ground);
     const speed = Math.hypot(vel.x, vel.z);
     const targetPitch = Math.atan2(-vel.y, Math.max(0.6, speed)) * 0.9;
     this.pitch += (targetPitch - this.pitch) * (1 - Math.exp(-4 * dt));
@@ -166,6 +186,33 @@ export class DiverView {
     this.bubbles.instanceMatrix.needsUpdate = true;
   }
 
+  /** A faint vertical line from the diver to the ground with a small ring where it lands, so height reads in the isometric view. */
+  private plumbLine() {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array((2 + RING * 2) * 3), 3));
+    const mat = new THREE.LineBasicNodeMaterial({ transparent: true, depthWrite: false, fog: false });
+    mat.colorNode = color(0xd8efe6);
+    mat.opacityNode = this.plumbOpacity;
+    const line = new THREE.LineSegments(geo, mat);
+    line.frustumCulled = false;
+    return line;
+  }
+
+  private updatePlumb(pos: THREE.Vector3, ground: number) {
+    const h = pos.y - ground;
+    this.plumbOpacity.value = THREE.MathUtils.smoothstep(h, 0.7, 1.6) * 0.32;
+    const a = this.plumb.geometry.attributes.position as THREE.BufferAttribute;
+    const y = ground + 0.04;
+    a.setXYZ(0, pos.x, pos.y - 0.2, pos.z);
+    a.setXYZ(1, pos.x, y, pos.z);
+    for (let i = 0; i < RING; i++) {
+      const a0 = (i / RING) * Math.PI * 2, a1 = ((i + 1) / RING) * Math.PI * 2;
+      a.setXYZ(2 + i * 2, pos.x + Math.cos(a0) * RING_RADIUS, y, pos.z + Math.sin(a0) * RING_RADIUS);
+      a.setXYZ(3 + i * 2, pos.x + Math.cos(a1) * RING_RADIUS, y, pos.z + Math.sin(a1) * RING_RADIUS);
+    }
+    a.needsUpdate = true;
+  }
+
   private finGeometry() {
     const shape = new THREE.Shape();
     shape.moveTo(-0.07, 0);
@@ -213,8 +260,4 @@ export class DiverView {
     return m;
   }
 
-  dispose() {
-    this.root.removeFromParent();
-    this.bubbles.removeFromParent();
-  }
 }

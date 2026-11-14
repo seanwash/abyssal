@@ -1,7 +1,7 @@
 import { Client, type Room } from '@colyseus/sdk';
 import { DT, SERVER_PORT, TICK_RATE } from '../../shared/constants';
 import type { Level } from '../../shared/level';
-import { createWorld, DiverBody, type RAPIER } from '../../shared/physics';
+import { stepDiver } from '../../shared/physics';
 import type { DiverInput, DiverSim } from '../../shared/protocol';
 
 export interface DiverSnapshot {
@@ -54,8 +54,6 @@ export class Net {
   readonly offset = { x: 0, y: 0, z: 0 };
   /** Local position before the latest fixed step, blended with `sim` so motion is smooth between ticks. */
   private prev = { x: 0, y: 0, z: 0 };
-  private world: RAPIER.World;
-  private body: DiverBody;
   private seq = 0;
   private pending: DiverInput[] = [];
   private remotes = new Map<string, RemoteDiver>();
@@ -66,10 +64,8 @@ export class Net {
   corrections = 0;
 
   constructor(private level: Level) {
-    this.world = createWorld(level);
     const spawn = level.spawns[0];
     this.sim = { x: spawn.x, y: spawn.y, z: spawn.z, vx: 0, vy: 0, vz: 0, yaw: Math.PI };
-    this.body = new DiverBody(this.world, this.sim);
     this.syncPrev();
   }
 
@@ -105,7 +101,7 @@ export class Net {
   step(dir: { x: number; y: number; z: number }) {
     const input: DiverInput = { seq: ++this.seq, x: dir.x, y: dir.y, z: dir.z };
     this.syncPrev();
-    this.body.step(this.sim, input, DT);
+    stepDiver(this.level, this.sim, input, DT);
     if (this.status === 'online' && this.room) {
       this.pending.push(input);
       if (this.pending.length > MAX_PENDING) this.pending.shift();
@@ -134,7 +130,7 @@ export class Net {
           this.placed = true;
           Object.assign(this.sim, { x: d.x, y: d.y, z: d.z, vx: d.vx, vy: d.vy, vz: d.vz, yaw: d.yaw });
           this.pending = this.pending.filter((p) => p.seq > d.ack);
-          for (const input of this.pending) this.body.step(this.sim, input, DT);
+          for (const input of this.pending) stepDiver(this.level, this.sim, input, DT);
           this.syncPrev();
           return;
         }
@@ -158,7 +154,7 @@ export class Net {
     const before = { x: this.sim.x, y: this.sim.y, z: this.sim.z };
     Object.assign(this.sim, { x: d.x, y: d.y, z: d.z, vx: d.vx, vy: d.vy, vz: d.vz, yaw: d.yaw });
     this.pending = this.pending.filter((p) => p.seq > d.ack);
-    for (const input of this.pending) this.body.step(this.sim, input, DT);
+    for (const input of this.pending) stepDiver(this.level, this.sim, input, DT);
     const ex = before.x - this.sim.x, ey = before.y - this.sim.y, ez = before.z - this.sim.z;
     const err = Math.hypot(ex, ey, ez);
     if (err > 1e-4) {

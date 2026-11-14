@@ -15,5 +15,4 @@ export default defineConfig({
     },
   },
   build: { outDir: '../dist', emptyOutDir: true, target: 'es2022' },
-  optimizeDeps: { exclude: ['@dimforge/rapier3d-compat'] },
 });

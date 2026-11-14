@@ -26,7 +26,7 @@ export class Hud {
   constructor() {
     const card = el('div', 'plate', this.root);
     el('div', 'plate-kicker', card, 'Plate I');
-    el('div', 'plate-title', card, 'Cannery Row');
+    el('div', 'plate-title', card, 'Test Reef');
     el('div', 'plate-sub', card, 'Monterey Bay &middot; kelp forest');
     const rule = el('div', 'plate-rule', card);
     rule.setAttribute('aria-hidden', 'true');
@@ -43,7 +43,7 @@ export class Hud {
     this.label = el('div', 'specimen', this.root,
       '<div class="specimen-no">No. 1</div><div class="specimen-latin">Chrysaora fuscescens</div><div class="specimen-common">Pacific sea nettle</div>');
 
-    el('div', 'controls', this.root, '<b>WASD</b> swim &nbsp; <b>Space</b> rise &nbsp; <b>Shift</b> sink');
+    el('div', 'controls', this.root, '<b>WASD</b> or <b>arrows</b> swim &nbsp; <b>Space</b> / <b>E</b> rise &nbsp; <b>Shift</b> / <b>Q</b> sink');
   }
 
   update(divers: DiverSnapshot[], status: NetStatus, camera: THREE.Camera, specimen: THREE.Vector3 | null, w: number, h: number) {
