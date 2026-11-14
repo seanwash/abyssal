@@ -4,3 +4,4 @@ bots/out/
 *.log
 .DS_Store
 .amp/portals/*
+build/

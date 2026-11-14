@@ -16,6 +16,8 @@ const SIZE = { width: Number(process.env.W ?? 960), height: Number(process.env.H
 const QUICK = process.argv.includes('--quick');
 /** Stretches every key hold, for slow software-rendered runs where each frame takes hundreds of ms. */
 const PACE = Number(process.env.PACE ?? 1);
+/** Both browsers join this party so they share a dive. */
+const PARTY = `BOTS${Date.now() % 100000}`;
 
 const SOFTWARE_GL = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 
@@ -44,7 +46,7 @@ async function main() {
     const page = await ctx.newPage();
     page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') console.log(`[${name}] ${m.type()}: ${m.text()}`); });
     page.on('pageerror', (e) => console.log(`[${name}] pageerror: ${e.message}`));
-    await page.goto(`${URL}?name=${encodeURIComponent(name)}${process.env.QS ?? ''}`);
+    await page.goto(`${URL}?name=${encodeURIComponent(name)}&party=${PARTY}${process.env.QS ?? ''}`);
     return { ctx, page };
   };
 

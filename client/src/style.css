@@ -30,6 +30,21 @@ canvas { display: block; width: 100vw; height: 100vh; }
 .diver-row .you { margin-left: auto; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-soft); }
 .net-status { position: absolute; top: 24px; right: 24px; padding: 6px 12px; background: var(--glass); border: 1px solid var(--rule); font-style: italic; opacity: 0; transition: opacity 0.4s; }
 .net-status.show { opacity: 1; }
+.party {
+  position: fixed; right: 20px; bottom: 50px; padding: 8px 12px 7px; background: var(--glass); border: 1px solid var(--rule);
+  font-family: 'Cormorant Garamond', 'Iowan Old Style', Georgia, serif; color: var(--ink); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+}
+.party-row { display: flex; align-items: baseline; gap: 8px; }
+.party .k { letter-spacing: 0.18em; text-transform: uppercase; font-size: 11px; color: var(--ink-soft); }
+.party .code { font-size: 20px; font-weight: 600; letter-spacing: 0.12em; }
+.party button {
+  margin-left: 6px; font: inherit; font-size: 14px; font-style: italic; color: var(--accent); background: none;
+  border: 1px solid var(--rule); padding: 1px 8px; cursor: pointer;
+}
+.party button:hover { background: rgba(154, 59, 34, 0.08); }
+.party-notice { font-size: 14px; font-style: italic; color: var(--accent); }
+.party-notice:empty { display: none; }
+.party-stats { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 .controls { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); white-space: nowrap; color: rgba(236, 228, 206, 0.7); font-size: 15px; letter-spacing: 0.04em; }
 .controls b { font-weight: 600; color: rgba(236, 228, 206, 0.95); border: 1px solid rgba(236, 228, 206, 0.4); padding: 0 5px; margin-right: 2px; }
 .name-tag { position: absolute; left: 0; top: 0; color: var(--paper); font-size: 15px; font-style: italic; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8); white-space: nowrap; }

@@ -5,7 +5,9 @@
     "dev": "concurrently -k -n server,client -c cyan,magenta \"npm:server\" \"npm:client\"",
     "server": "tsx watch server/index.ts",
     "client": "vite --host 0.0.0.0",
-    "build": "vite build",
+    "build": "vite build && npm run build:server",
+    "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --target=node20 --outfile=build/server.mjs --log-level=warning --banner:js=\"import { createRequire as __abyssalRequire } from 'node:module'; const require = __abyssalRequire(import.meta.url);\"",
+    "start": "node build/server.mjs",
     "typecheck": "tsc --noEmit",
     "bots": "tsx bots/record.ts"
   },
@@ -14,6 +16,7 @@
     "@types/node": "^26.6.6",
     "@types/three": "^0.187.0",
     "concurrently": "^10.0.7",
+    "esbuild": "^0.28.2",
     "playwright": "^1.65.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

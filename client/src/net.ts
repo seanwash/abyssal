@@ -1,9 +1,10 @@
 import { Client, type Room } from '@colyseus/sdk';
-import { DT, SERVER_PORT, TICK_RATE } from '../../shared/constants';
+import { DT, TICK_RATE } from '../../shared/constants';
 import type { Fx } from '../../shared/arena';
 import type { Level } from '../../shared/level';
 import { stepDiver } from '../../shared/physics';
-import { swimInput, type DiverInput, type DiverSim } from '../../shared/protocol';
+import { CLOSE_REPLACED, ERROR_DIVE_FULL, swimInput, type DiverInput, type DiverSim, type JoinOptions } from '../../shared/protocol';
+import { DIVER_ID, PARTY } from './party';
 
 export interface DiverSnapshot {
   id: string;
@@ -59,6 +60,11 @@ interface ServerState {
 /** Remote divers and creatures render this many server ticks in the past so there are always two samples to blend. */
 const INTERP_DELAY_TICKS = 3;
 const MAX_PENDING = 120;
+/** How long the first join may take before the tab dives solo while it keeps trying. */
+const SOLO_AFTER_MS = 4000;
+/** A join attempt that takes longer than this is abandoned and retried. */
+const JOIN_TIMEOUT_MS = 15000;
+const MAX_RETRY_MS = 5000;
 
 export type NetStatus = 'connecting' | 'online' | 'offline';
 
@@ -91,7 +97,8 @@ function sampleAt(s: Sample[], renderTick: number) {
 /**
  * Client netcode: local prediction with server reconciliation for this player's diver, and
  * snapshot interpolation for the other diver and the creatures. Falls back to a local-only
- * simulation when the server cannot be reached, so the scene is still explorable.
+ * simulation when the server cannot be reached, so the scene is still explorable, and keeps
+ * trying to rejoin the party, where the server holds this tab's seat and position.
  */
 export class Net {
   status: NetStatus = 'connecting';
@@ -122,6 +129,11 @@ export class Net {
   fx: Fx[] = [];
   rtt = 0;
   corrections = 0;
+  /** Why this tab is not in the party, when the reason is more specific than the status. */
+  notice = '';
+  private joinOptions: JoinOptions = { party: PARTY, diver: DIVER_ID };
+  private retry?: ReturnType<typeof setTimeout>;
+  private retryMs = 1000;
 
   constructor(private level: Level) {
     const spawn = level.spawns[0];
@@ -134,28 +146,71 @@ export class Net {
   }
 
   async connect(name: string) {
+    this.joinOptions.name = name;
+    this.localName = name || 'Diver I';
+    await Promise.race([this.join(), new Promise((resolve) => setTimeout(resolve, SOLO_AFTER_MS))]);
+    if (this.status === 'connecting') this.status = 'offline';
+    // A laptop waking or a network coming back should not wait out the retry delay.
+    const now = () => { if (this.retry) this.scheduleJoin(0); };
+    addEventListener('online', now);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) now(); });
+    setInterval(() => this.room?.ping((ms) => { this.rtt = ms; }), 2000);
+  }
+
+  private scheduleJoin(ms: number) {
+    clearTimeout(this.retry);
+    this.retry = setTimeout(() => { this.retry = undefined; void this.join(); }, ms);
+  }
+
+  private async join() {
     const params = new URLSearchParams(location.search);
-    const url = params.get('server')
-      ?? (import.meta.env.DEV ? '/colyseus' : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:${SERVER_PORT}`);
-    const client = new Client(url);
+    const client = new Client(params.get('server') ?? (import.meta.env.DEV ? '/colyseus' : undefined));
+    const joining = client.joinOrCreate('dive', this.joinOptions);
+    let room: Room;
     try {
-      const room = await Promise.race([
-        client.joinOrCreate('dive', { name }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000)),
+      room = await Promise.race([
+        joining,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), JOIN_TIMEOUT_MS)),
       ]);
-      this.room = room;
-      this.sessionId = room.sessionId;
-      this.status = 'online';
-      room.onStateChange((state: ServerState) => this.onState(state));
-      room.onMessage('fx', (list: Fx[]) => { this.fx.push(...list); });
-      room.onLeave(() => { this.status = 'offline'; });
-      // The first state lists the divers already in the dive, so callers can set up the scene with them.
-      await new Promise<void>((resolve) => { room.onStateChange.once(() => resolve()); setTimeout(resolve, 1000); });
     } catch (err) {
-      console.warn('[abyssal] server unreachable, diving solo', err);
-      this.status = 'offline';
-      this.localName = name || 'Diver I';
+      // A join that lands after the timeout would hold a second seat for this diver.
+      joining.then((late) => late.leave(), () => {});
+      const full = (err as { code?: number }).code === ERROR_DIVE_FULL;
+      this.notice = full ? 'This party already has two divers.' : '';
+      if (!full) console.warn('[abyssal] could not join the dive, retrying', err);
+      this.scheduleJoin(this.retryMs);
+      this.retryMs = Math.min(MAX_RETRY_MS, this.retryMs * 2);
+      return;
     }
+    // Rejoining is handled here, with the seat the server holds for this diver, rather than by
+    // the SDK's own reconnection, which cannot survive a reload.
+    room.reconnection.enabled = false;
+    this.room = room;
+    this.sessionId = room.sessionId;
+    this.status = 'online';
+    this.notice = '';
+    this.retryMs = 1000;
+    this.placed = false;
+    this.pending = [];
+    this.lastAck = 0;
+    this.tickOffset = null;
+    this.remotes.clear();
+    this.creatures.clear();
+    room.onStateChange((state: ServerState) => this.onState(state));
+    room.onMessage('fx', (list: Fx[]) => { this.fx.push(...list); });
+    room.onLeave((code) => {
+      if (this.room !== room) return;
+      this.room = undefined;
+      if (code === CLOSE_REPLACED) {
+        this.status = 'offline';
+        this.notice = 'This diver is now playing in another tab.';
+        return;
+      }
+      this.status = 'connecting';
+      this.scheduleJoin(0);
+    });
+    // The first state lists the divers already in the dive, so callers can set up the scene with them.
+    await new Promise<void>((resolve) => { room.onStateChange.once(() => resolve()); setTimeout(resolve, 1000); });
   }
 
   /** Asks the server to seat a computer buddy in the empty second seat, or to remove it. */

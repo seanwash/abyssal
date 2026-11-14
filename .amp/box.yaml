@@ -1,0 +1,6 @@
+build: npm ci --no-audit --no-fund && npm run build
+source: false
+artifacts: [dist, build]
+services:
+  game:
+    command: node build/server.mjs

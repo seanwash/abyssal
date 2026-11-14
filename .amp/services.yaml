@@ -6,4 +6,4 @@ services:
     command: npm run client -- --port "$PORT" --strictPort
     portal:
       title: Abyssal
-      description: The first two tabs join the same dive. Add ?name=Jaime to set a diver name.
+      description: Opening it starts a party; Copy invite link brings a second tab or person into the same dive. Add ?name=Jaime to set a diver name.

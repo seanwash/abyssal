@@ -29,3 +29,15 @@ export function sanitizeInput(raw: unknown): DiverInput | null {
   y = Math.max(-1, Math.min(1, y));
   return { seq: Math.floor(r.seq as number), x, y, z, act: r.act ? 1 : 0 };
 }
+
+/** Options a browser sends when it joins a dive. `party` picks the room; `diver` identifies the tab across reloads and drops. */
+export interface JoinOptions {
+  name?: string;
+  party?: string;
+  diver?: string;
+}
+
+/** Close code for a connection whose diver has rejoined from a newer connection, such as the same tab after a network change. */
+export const CLOSE_REPLACED = 4100;
+/** Join error code when the party already has two divers connected. */
+export const ERROR_DIVE_FULL = 4409;
