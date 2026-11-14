@@ -8,7 +8,7 @@ import { DiverView } from './diver';
 import { buildBoulders, buildFloor, buildGodRays, buildKelp, buildMarineSnow, buildScatter, cutaway, PALETTE } from './env';
 import { Hud } from './hud';
 import { readSwim } from './input';
-import { Net } from './net';
+import { Net, type DiverSnapshot } from './net';
 import { SeaNettle } from './nettle';
 import './style.css';
 
@@ -20,6 +20,18 @@ const CAMERA = {
   distance: 13,
   fov: 34,
 };
+
+const yieldToBrowser = () => new Promise((resolve) => setTimeout(resolve));
+
+function placeCamera(camera: THREE.PerspectiveCamera, target: THREE.Vector3) {
+  const cp = Math.cos(CAMERA.pitch);
+  camera.position.set(
+    target.x + Math.sin(CAMERA.yaw) * cp * CAMERA.distance,
+    target.y + Math.sin(CAMERA.pitch) * CAMERA.distance,
+    target.z + Math.cos(CAMERA.yaw) * cp * CAMERA.distance,
+  );
+  camera.lookAt(target);
+}
 
 async function main() {
   await initPhysics();
@@ -52,7 +64,12 @@ async function main() {
   sun.shadow.normalBias = 0.04;
   scene.add(sun, sun.target);
 
-  scene.add(buildFloor(level), buildBoulders(level), buildScatter(level), buildKelp(level), buildGodRays());
+  // Kelp generation is the longest synchronous step, so give the browser a turn on either side of it.
+  scene.add(buildFloor(level), buildBoulders(level), buildScatter(level));
+  await yieldToBrowser();
+  scene.add(buildKelp(level));
+  await yieldToBrowser();
+  scene.add(buildGodRays());
   const snow = buildMarineSnow();
   scene.add(snow.object);
 
@@ -74,7 +91,28 @@ async function main() {
   await net.connect(name);
 
   const views = new Map<string, DiverView>();
+  const syncViews = (divers: DiverSnapshot[]) => {
+    const live = new Set<string>();
+    for (const d of divers) {
+      live.add(d.id);
+      let v = views.get(d.id);
+      if (v && v.suit !== d.suit) { v.dispose(); v = undefined; }
+      if (!v) {
+        v = new DiverView(d.suit);
+        views.set(d.id, v);
+        scene.add(v.root, v.bubbleMesh);
+      }
+    }
+    for (const [id, v] of views) if (!live.has(id)) { v.dispose(); views.delete(id); }
+  };
+
+  // Each diver's headlamp is a light, so it changes every lit material's shader; add them before
+  // compiling. compileAsync spreads shader builds over frames instead of blocking the first render.
+  syncViews(net.snapshot(0));
   const camTarget = new THREE.Vector3(net.sim.x, net.sim.y, net.sim.z);
+  placeCamera(camera, camTarget);
+  await scenePass.compileAsync(renderer);
+
   const clock = new THREE.Timer();
   let acc = 0;
   let frames = 0;
@@ -104,31 +142,16 @@ async function main() {
     net.decayOffset(dt);
 
     const divers = net.snapshot(acc / DT);
-    const live = new Set<string>();
+    syncViews(divers);
     for (const d of divers) {
-      live.add(d.id);
-      let v = views.get(d.id);
-      if (v && v.suit !== d.suit) { v.dispose(); v = undefined; }
-      if (!v) {
-        v = new DiverView(d.suit);
-        views.set(d.id, v);
-        scene.add(v.root, v.bubbleMesh);
-      }
-      v.update(dt, t, new THREE.Vector3(d.x, d.y, d.z), d.yaw, new THREE.Vector3(d.vx, d.vy, d.vz));
+      views.get(d.id)!.update(dt, t, new THREE.Vector3(d.x, d.y, d.z), d.yaw, new THREE.Vector3(d.vx, d.vy, d.vz));
     }
-    for (const [id, v] of views) if (!live.has(id)) { v.dispose(); views.delete(id); }
 
     const me = divers[0];
     const lead = new THREE.Vector3(me.vx, 0, me.vz).multiplyScalar(0.35);
     const goal = new THREE.Vector3(me.x, me.y, me.z).add(lead);
     camTarget.lerp(goal, 1 - Math.exp(-3.5 * dt));
-    const cp = Math.cos(CAMERA.pitch);
-    camera.position.set(
-      camTarget.x + Math.sin(CAMERA.yaw) * cp * CAMERA.distance,
-      camTarget.y + Math.sin(CAMERA.pitch) * CAMERA.distance,
-      camTarget.z + Math.cos(CAMERA.yaw) * cp * CAMERA.distance,
-    );
-    camera.lookAt(camTarget);
+    placeCamera(camera, camTarget);
 
     cutaway.diver.value.set(me.x, me.y, me.z);
     cutaway.camDir.value.set(Math.sin(CAMERA.yaw), Math.cos(CAMERA.yaw));

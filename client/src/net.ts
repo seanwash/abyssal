@@ -92,6 +92,8 @@ export class Net {
       this.status = 'online';
       room.onStateChange((state: ServerState) => this.onState(state));
       room.onLeave(() => { this.status = 'offline'; });
+      // The first state lists the divers already in the dive, so callers can set up the scene with them.
+      await new Promise<void>((resolve) => { room.onStateChange.once(() => resolve()); setTimeout(resolve, 1000); });
     } catch (err) {
       console.warn('[abyssal] server unreachable, diving solo', err);
       this.status = 'offline';

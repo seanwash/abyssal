@@ -202,7 +202,7 @@ export function buildKelp(level: Level) {
       const blade = bladeGeometry(base.clone().addScaledVector(outward, 0.06), dir, outward, len, width, rnd);
       tagGeometry(blade, k, PALETTE.kelpDark, PALETTE.kelpGold, t);
       parts.push(blade);
-      const bl = bladderGeo.clone();
+      const bl = bladderGeo.toNonIndexed();
       bl.translate(base.x + outward.x * 0.06, base.y, base.z + outward.z * 0.06);
       tagGeometry(bl, k, new THREE.Color(0x8a7a2c), new THREE.Color(0x8a7a2c));
       parts.push(bl);
