@@ -34,6 +34,7 @@ export class DiverView {
   private kick = 0;
   private bank = 0;
   private pitch = 0;
+  private roll = 0;
   readonly lampStrength = uniform(1);
 
   constructor(readonly suit: number) {
@@ -128,7 +129,8 @@ export class DiverView {
   }
 
   /** `ground` is the height of the first surface straight below the diver. */
-  update(dt: number, t: number, pos: THREE.Vector3, yaw: number, vel: THREE.Vector3, ground: number) {
+  /** A diver out of air (`down`) rolls onto its side, stops kicking and its lamp dims. */
+  update(dt: number, t: number, pos: THREE.Vector3, yaw: number, vel: THREE.Vector3, ground: number, down = false) {
     this.root.position.copy(pos);
     this.updatePlumb(pos, ground);
     const speed = Math.hypot(vel.x, vel.z);
@@ -138,10 +140,13 @@ export class DiverView {
     dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
     this.bank += (-dyaw * 2.5 - this.bank) * (1 - Math.exp(-5 * dt));
     this.root.rotation.set(0, yaw, 0);
-    this.body.rotation.set(this.pitch, 0, THREE.MathUtils.clamp(this.bank, -0.5, 0.5));
+    this.roll += ((down ? 1.9 : 0) - this.roll) * (1 - Math.exp(-3 * dt));
+    this.body.rotation.set(this.pitch, 0, THREE.MathUtils.clamp(this.bank, -0.5, 0.5) + this.roll);
+    this.lamp.intensity = this.lampIntensity * (down ? 0.2 : 1);
+    this.lampStrength.value = down ? 0.2 : 1;
     this.body.position.y = Math.sin(t * 1.1) * 0.04;
 
-    const effort = Math.min(1, speed / 3 + Math.abs(vel.y) / 3);
+    const effort = down ? 0 : Math.min(1, speed / 3 + Math.abs(vel.y) / 3);
     this.kick += dt * (2.2 + effort * 5.5);
     const amp = 0.12 + effort * 0.32;
     this.legs[0].rotation.x = Math.sin(this.kick) * amp;

@@ -5,30 +5,31 @@ import {
 import { boulderExtent, floorHeight, type Level } from './level';
 import type { DiverInput, DiverSim } from './protocol';
 
-const FLOOR_CLEARANCE = DIVER_HALF_HEIGHT + 0.05;
+export interface Body { x: number; y: number; z: number; vx: number; vy: number; vz: number }
+
 const CEILING = SURFACE_Y - 0.9;
 const PASSES = 3;
 
-/** Lowest height the diver's centre may reach at x, z: the floor under the middle and edges of the diver. */
-function floorLimit(x: number, z: number) {
-  const o = DIVER_RADIUS * 0.7;
+/** Lowest height the centre of a body `r` wide and `h` half-tall may reach at x, z: the floor under its middle and edges. */
+export function floorLimit(x: number, z: number, r: number, h: number) {
+  const o = r * 0.7;
   return Math.max(
     floorHeight(x, z),
     floorHeight(x + o, z), floorHeight(x - o, z),
     floorHeight(x, z + o), floorHeight(x, z - o),
-  ) + FLOOR_CLEARANCE;
+  ) + h + 0.05;
 }
 
 /**
- * Moves the diver out of every boulder it overlaps and removes the velocity that points into the
- * rock, so the diver slides along it. Each boulder is an ellipsoid grown by the diver's size.
+ * Moves the body out of every boulder it overlaps and removes the velocity that points into the
+ * rock, so it slides along it. Each boulder is an ellipsoid grown by the body's size.
  * Returns whether anything moved.
  */
-function resolveBoulders(level: Level, s: DiverSim) {
+function resolveBoulders(level: Level, s: Body, r: number, h: number) {
   let moved = false;
   for (const b of level.boulders) {
     const e = boulderExtent(b);
-    const A = e.a + DIVER_RADIUS, C = e.c + DIVER_HALF_HEIGHT;
+    const A = e.a + r, C = e.c + h;
     const dx = s.x - b.x, dy = s.y - b.y, dz = s.z - b.z;
     if (Math.abs(dx) >= A || Math.abs(dz) >= A || Math.abs(dy) >= C) continue;
     const qx = dx / A, qy = dy / C, qz = dz / A;
@@ -46,6 +47,35 @@ function resolveBoulders(level: Level, s: DiverSim) {
   return moved;
 }
 
+/** Keeps a body `r` wide and `h` half-tall out of the boulders and the seafloor, below the surface and inside the play area. */
+export function collide(level: Level, s: Body, r: number, h: number) {
+  for (let pass = 0; pass < PASSES; pass++) {
+    let moved = resolveBoulders(level, s, r, h);
+    const minY = floorLimit(s.x, s.z, r, h);
+    if (s.y < minY) { s.y = minY; s.vy = Math.max(0, s.vy); moved = true; }
+    if (s.y > CEILING) { s.y = CEILING; s.vy = Math.min(0, s.vy); }
+    if (Math.abs(s.x) > PLAY_HALF_X) { s.x = Math.sign(s.x) * PLAY_HALF_X; s.vx *= -0.2; }
+    if (Math.abs(s.z) > PLAY_HALF_Z) { s.z = Math.sign(s.z) * PLAY_HALF_Z; s.vz *= -0.2; }
+    if (!moved) break;
+  }
+}
+
+/** Whether the straight line from a to b passes clear of every boulder. */
+export function clearLine(level: Level, a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }) {
+  const len = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+  const n = Math.max(1, Math.ceil(len / 0.3));
+  for (let i = 1; i < n; i++) {
+    const t = i / n;
+    const x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t, z = a.z + (b.z - a.z) * t;
+    if (y < floorHeight(x, z)) return false;
+    for (const r of level.boulders) {
+      const e = boulderExtent(r);
+      if (((x - r.x) ** 2 + (z - r.z) ** 2) / (e.a * e.a) + ((y - r.y) / e.c) ** 2 < 1) return false;
+    }
+  }
+  return true;
+}
+
 /**
  * Advances one diver by one fixed step. The server and client prediction both call it, so they
  * agree on where a diver ends up. The diver collides with the seafloor, the boulders, the
@@ -59,15 +89,7 @@ export function stepDiver(level: Level, s: DiverSim, input: DiverInput, dt: numb
 
   s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
 
-  for (let pass = 0; pass < PASSES; pass++) {
-    let moved = resolveBoulders(level, s);
-    const minY = floorLimit(s.x, s.z);
-    if (s.y < minY) { s.y = minY; s.vy = Math.max(0, s.vy); moved = true; }
-    if (s.y > CEILING) { s.y = CEILING; s.vy = Math.min(0, s.vy); }
-    if (Math.abs(s.x) > PLAY_HALF_X) { s.x = Math.sign(s.x) * PLAY_HALF_X; s.vx *= -0.2; }
-    if (Math.abs(s.z) > PLAY_HALF_Z) { s.z = Math.sign(s.z) * PLAY_HALF_Z; s.vz *= -0.2; }
-    if (!moved) break;
-  }
+  collide(level, s, DIVER_RADIUS, DIVER_HALF_HEIGHT);
 
   const speed = Math.hypot(s.vx, s.vz);
   if (speed > 0.25) {

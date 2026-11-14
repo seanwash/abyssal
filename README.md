@@ -17,12 +17,22 @@ This starts the dive server on port 2567 and the game on port 5173. Open
 `http://<this computer's IP>:5173` (Vite prints the Network address). The first two players
 join the same dive.
 
-Controls: **WASD** or the arrow keys swim, **Space** or **E** rises, **Shift** or **Q** sinks. A gamepad's left stick works too.
+Controls: **WASD** or the arrow keys swim, **Space** or **E** rises, **Shift** or **Q** sinks. **F** or **Enter** acts on
+the nearest thing in front of you: hold it to calm the lingcod or buddy-breathe a downed diver, press it to harpoon the
+drone. **B** seats a bot buddy in the empty second seat, or removes it. A gamepad works too (left stick, X or right
+trigger to act).
 
 The dive is a small test reef: a reef flat at about 8 m, a sand channel (the Hollow) dropping to about 14 m,
 a boulder pinnacle that rises to within 2 m of the surface, and an arch to swim under. Each diver's lamp
 lights by 3D distance, so the floor only shows when you swim down to it. A shadow and a plumb line under
 each diver show its height above the ground.
+
+**The first fight.** A sick lingcod guards its egg mass on the floor of the Hollow and lunges at divers who come close;
+it glows violet until you calm it, and it can only be calmed between lunges. A survey drone patrols midwater around the
+pinnacle, hunts divers it can see and charges an electric shock. Air drains faster the deeper you are and refills at
+the surface; bites and shocks cost air. A diver out of air sinks until the other diver holds the action key beside
+them. Calm the lingcod and wreck the drone to clear the reef; it resets after a short pause, or straight away if both
+divers are down.
 
 Useful URL options:
 
@@ -62,6 +72,9 @@ server acknowledged every input (`npx tsx bots/smoke.ts`).
 | Path | Role |
 | --- | --- |
 | `shared/` | Level layout, constants and diver movement and collision, used identically by client and server |
+| `shared/arena.ts` | The fight: air, the action key's target, the lingcod and drone, buddy breathing. The server runs it |
+| `server/buddy.ts` | The bot buddy that fills the second seat |
+| `client/src/fight.ts` | Procedural lingcod, drone, egg mass and fight effects |
 | `server/` | Colyseus room: 30 Hz fixed step, applies queued inputs, broadcasts diver state |
 | `client/src/net.ts` | Predicts your own diver, reconciles with the server, interpolates the other diver |
 | `client/src/nettle.ts` | Procedural *Chrysaora fuscescens*: scalloped bell, oral arms, tentacles, pulse |

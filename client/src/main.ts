@@ -2,11 +2,13 @@ import * as THREE from 'three/webgpu';
 import { pass } from 'three/tsl';
 import { DT, SUITS } from '../../shared/constants';
 import { buildLevel, groundHeight } from '../../shared/level';
+import { pickTarget } from '../../shared/arena';
 import { DiverView } from './diver';
+import { buildNest, DroneView, Effects, LingcodView } from './fight';
 import { buildBoulders, buildFloor, buildGodRays, buildKelp, buildMarineSnow, buildScatter, cutaway, PALETTE } from './env';
 import { Hud } from './hud';
 import { applyIsoScene, fitIso, ISO, isoCamera, isoDiverLight, isoOutput, isoPixelRatio } from './iso';
-import { readSwim } from './input';
+import { readAct, readSwim } from './input';
 import { Net } from './net';
 import { SeaNettle } from './nettle';
 import './style.css';
@@ -63,6 +65,11 @@ async function main() {
   const snow = buildMarineSnow();
   scene.add(snow.object);
 
+  const lingcod = new LingcodView();
+  const drone = new DroneView();
+  const effects = new Effects();
+  scene.add(lingcod.root, drone.root, buildNest(level.nest), ...effects.objects);
+
   const nettles = level.jellies.map((j) => new SeaNettle(j));
   for (const n of nettles) scene.add(n.group);
   const hero = nettles.find((_, i) => level.jellies[i].hero) ?? null;
@@ -97,6 +104,8 @@ async function main() {
   let frames = 0;
   let frameMs = 0;
 
+  addEventListener('keydown', (e) => { if (e.code === 'KeyB' && !e.repeat) net.toggleBuddy(); });
+
   addEventListener('resize', () => {
     fitIso(camera);
     renderer.setPixelRatio(pixelRatio());
@@ -118,7 +127,7 @@ async function main() {
     acc += dt;
     let steps = 0;
     while (acc >= DT && steps < 10) {
-      net.step(readSwim(ISO.yaw));
+      net.step(readSwim(ISO.yaw), readAct());
       acc -= DT;
       steps++;
     }
@@ -129,8 +138,21 @@ async function main() {
     views.forEach((v, suit) => {
       const d = divers.find((x) => x.suit === suit);
       v.setPresent(!!d);
-      if (d) v.update(dt, t, new THREE.Vector3(d.x, d.y, d.z), d.yaw, new THREE.Vector3(d.vx, d.vy, d.vz), groundHeight(level, d.x, d.z, d.y));
+      if (d) v.update(dt, t, new THREE.Vector3(d.x, d.y, d.z), d.yaw, new THREE.Vector3(d.vx, d.vy, d.vz), groundHeight(level, d.x, d.z, d.y), d.down);
     });
+
+    const creatures = net.creatureSnapshot();
+    for (const c of creatures) {
+      if (c.kind === 'lingcod') lingcod.update(dt, c); else drone.update(dt, t, c);
+    }
+    lingcod.root.visible = creatures.some((c) => c.kind === 'lingcod');
+    drone.root.visible = creatures.some((c) => c.kind === 'drone');
+    for (const f of net.fx.splice(0)) {
+      if (f.k === 'harpoon' && f.p && f.q) effects.harpoon(f.p, f.q);
+      else if (f.k === 'shock' && f.p) effects.shock(f.p);
+      hud.event(f, divers);
+    }
+    effects.update(dt);
 
     const me = divers[0];
     const partner = divers.find((d) => !d.local);
@@ -154,10 +176,12 @@ async function main() {
     for (const n of nettles) n.update(shared);
 
     pipeline.render();
+    const target = me.down ? null : pickTarget(level, { id: me.id, x: me.x, y: me.y, z: me.z, yaw: me.yaw }, divers, creatures);
     hud.update(divers, net.status, camera, hero ? hero.worldPosition : null, innerWidth, innerHeight);
+    hud.fight(divers, creatures, target, readAct(), net, camera, innerWidth, innerHeight);
     frames++;
     frameMs += (performance.now() - f0 - frameMs) * 0.1;
-    (window as unknown as { __abyssal: unknown }).__abyssal = { status: net.status, divers, corrections: net.corrections, frames, frameMs };
+    (window as unknown as { __abyssal: unknown }).__abyssal = { status: net.status, divers, creatures, target, phase: net.phase, corrections: net.corrections, frames, frameMs };
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

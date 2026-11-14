@@ -5,6 +5,7 @@ import { fbm2, mulberry32 } from './rng';
 export interface Boulder { x: number; y: number; z: number; r: number; sy: number; rot: number; seed: number }
 export interface Kelp { x: number; z: number; floorY: number; height: number; phase: number; lean: number }
 export interface Jelly { x: number; y: number; z: number; scale: number; phase: number; hero: boolean }
+export interface Point { x: number; y: number; z: number }
 
 export interface Level {
   seed: number;
@@ -14,7 +15,10 @@ export interface Level {
   boulders: Boulder[];
   kelp: Kelp[];
   jellies: Jelly[];
-  spawns: { x: number; y: number; z: number }[];
+  spawns: Point[];
+  /** The lingcod's egg mass on the floor of the Hollow, and the loop the drone patrols midwater. */
+  nest: Point;
+  patrol: Point[];
 }
 
 /**
@@ -164,6 +168,14 @@ export function buildLevel(seed = 7): Level {
     spawns: [
       { x: -1.2, y: -4.5, z: 6 },
       { x: 1.2, y: -4.5, z: 6 },
+    ],
+    nest: { x: -8.3, y: floorHeight(-8.3, -7), z: -7 },
+    // The loop passes either side of the pinnacle, so the drone has to steer around it.
+    patrol: [
+      { x: 3, y: -4.5, z: -1 },
+      { x: 13, y: -4, z: -12 },
+      { x: 17, y: -5, z: -2 },
+      { x: 12, y: -3.5, z: 4 },
     ],
   };
 }

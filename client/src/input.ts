@@ -3,7 +3,7 @@ const held = new Set<string>();
 addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement) return;
   held.add(e.code);
-  if (e.code === 'Space') e.preventDefault();
+  if (e.code === 'Space' || e.code === 'Enter') e.preventDefault();
 });
 addEventListener('keyup', (e) => held.delete(e.code));
 addEventListener('blur', () => held.clear());
@@ -33,4 +33,11 @@ export function readSwim(camYaw: number) {
   const len = Math.hypot(x, z);
   if (len > 1) { x /= len; z /= len; }
   return { x, y: Math.max(-1, Math.min(1, u)), z };
+}
+
+/** Whether the action key is held: F or Enter, or a gamepad's X or right trigger. */
+export function readAct() {
+  if (held.has('KeyF') || held.has('Enter') || held.has('NumpadEnter')) return true;
+  const pad = navigator.getGamepads?.().find((p) => p);
+  return !!(pad?.buttons[2]?.pressed || pad?.buttons[7]?.pressed);
 }
