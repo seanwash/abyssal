@@ -103,7 +103,7 @@ async function main() {
     if (steps === 10) acc = 0;
     net.decayOffset(dt);
 
-    const divers = net.snapshot();
+    const divers = net.snapshot(acc / DT);
     const live = new Set<string>();
     for (const d of divers) {
       live.add(d.id);

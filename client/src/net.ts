@@ -52,6 +52,8 @@ export class Net {
   readonly sim: DiverSim;
   /** Visual-only correction that decays to zero so reconciliation never pops. */
   readonly offset = { x: 0, y: 0, z: 0 };
+  /** Local position before the latest fixed step, blended with `sim` so motion is smooth between ticks. */
+  private prev = { x: 0, y: 0, z: 0 };
   private world: RAPIER.World;
   private body: DiverBody;
   private seq = 0;
@@ -68,6 +70,11 @@ export class Net {
     const spawn = level.spawns[0];
     this.sim = { x: spawn.x, y: spawn.y, z: spawn.z, vx: 0, vy: 0, vz: 0, yaw: Math.PI };
     this.body = new DiverBody(this.world, this.sim);
+    this.syncPrev();
+  }
+
+  private syncPrev() {
+    this.prev.x = this.sim.x; this.prev.y = this.sim.y; this.prev.z = this.sim.z;
   }
 
   async connect(name: string) {
@@ -95,6 +102,7 @@ export class Net {
   /** One fixed step of local input: predicted immediately, sent to the server for authority. */
   step(dir: { x: number; y: number; z: number }) {
     const input: DiverInput = { seq: ++this.seq, x: dir.x, y: dir.y, z: dir.z };
+    this.syncPrev();
     this.body.step(this.sim, input, DT);
     if (this.status === 'online' && this.room) {
       this.pending.push(input);
@@ -125,6 +133,7 @@ export class Net {
           Object.assign(this.sim, { x: d.x, y: d.y, z: d.z, vx: d.vx, vy: d.vy, vz: d.vz, yaw: d.yaw });
           this.pending = this.pending.filter((p) => p.seq > d.ack);
           for (const input of this.pending) this.body.step(this.sim, input, DT);
+          this.syncPrev();
           return;
         }
         if (d.ack > this.lastAck) this.reconcile(d);
@@ -152,16 +161,20 @@ export class Net {
     const err = Math.hypot(ex, ey, ez);
     if (err > 1e-4) {
       this.corrections++;
-      if (err > 3) { this.offset.x = this.offset.y = this.offset.z = 0; return; }
+      if (err > 3) { this.offset.x = this.offset.y = this.offset.z = 0; this.syncPrev(); return; }
       this.offset.x += ex; this.offset.y += ey; this.offset.z += ez;
+      this.prev.x -= ex; this.prev.y -= ey; this.prev.z -= ez;
     }
   }
 
-  /** Every diver as it should be drawn this frame. */
-  snapshot(): DiverSnapshot[] {
+  /** Every diver as it should be drawn this frame; `alpha` is the fraction of a fixed step elapsed since the last one. */
+  snapshot(alpha: number): DiverSnapshot[] {
+    const p = this.prev, s = this.sim;
     const out: DiverSnapshot[] = [{
       id: this.sessionId, name: this.localName || 'Diver I', suit: this.localSuit, local: true,
-      x: this.sim.x + this.offset.x, y: this.sim.y + this.offset.y, z: this.sim.z + this.offset.z,
+      x: p.x + (s.x - p.x) * alpha + this.offset.x,
+      y: p.y + (s.y - p.y) * alpha + this.offset.y,
+      z: p.z + (s.z - p.z) * alpha + this.offset.z,
       vx: this.sim.vx, vy: this.sim.vy, vz: this.sim.vz, yaw: this.sim.yaw,
     }];
     if (this.tickOffset === null) return out;
