@@ -1,0 +1,32 @@
+{
+  "name": "abyssal",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c cyan,magenta \"npm:server\" \"npm:client\"",
+    "server": "tsx watch server/index.ts",
+    "client": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "bots": "tsx bots/record.ts"
+  },
+  "devDependencies": {
+    "@sparticuz/chromium": "^153.0.0",
+    "@types/node": "^26.6.6",
+    "@types/three": "^0.187.0",
+    "concurrently": "^10.0.7",
+    "playwright": "^1.65.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  },
+  "dependencies": {
+    "@colyseus/schema": "^5.0.48",
+    "@colyseus/sdk": "^0.18.10",
+    "@colyseus/ws-transport": "^0.18.5",
+    "@dimforge/rapier3d-compat": "^0.21.0",
+    "colyseus": "^0.18.12",
+    "three": "^0.187.0"
+  },
+  "private": true,
+  "type": "module"
+}
