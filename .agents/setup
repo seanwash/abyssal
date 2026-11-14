@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+step() {
+  local start=$SECONDS
+  echo "==> $*"
+  "$@"
+  echo "    done in $((SECONDS - start))s"
+}
+
+node_major="$(node -p 'process.versions.node.split(".")[0]')"
+if (( node_major < 20 )); then
+  echo "Node 20 or newer is required, found $(node -v)" >&2
+  exit 1
+fi
+
+step npm install --no-save --no-audit --no-fund --prefer-offline
