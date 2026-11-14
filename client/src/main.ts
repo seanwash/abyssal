@@ -6,6 +6,8 @@ import { pickTarget } from '../../shared/arena';
 import { DiverView } from './diver';
 import { VIEWS } from './creatures';
 import { Effects } from './fight';
+import { near, sound } from './sound';
+import { SPECIES } from '../../shared/creatures';
 import { buildBoulders, buildFloor, buildGodRays, buildKelp, buildMarineSnow, buildScatter, cutaway, PALETTE } from './env';
 import { Hud } from './hud';
 import { applyIsoScene, fitIso, ISO, isoCamera, isoDiverLight, isoOutput, isoPixelRatio } from './iso';
@@ -105,6 +107,9 @@ async function main() {
   let acc = 0;
   let frames = 0;
   let frameMs = 0;
+  /** Camera shake from a hit on your own diver, 0 to 1. */
+  let shake = 0;
+  const soothing = new Map<string, { meter: number; rising: number; next: number }>();
 
   addEventListener('keydown', (e) => { if (e.code === 'KeyB' && !e.repeat) net.toggleBuddy(); });
 
@@ -149,10 +154,42 @@ async function main() {
       v.root.visible = !!c;
       if (c) v.update(dt, t, c);
     }
+    const here = divers[0];
+    const loud = (p?: ArrayLike<number>) => (p ? near(Math.hypot(p[0] - here.x, p[1] - here.y, p[2] - here.z)) : 1);
     for (const f of net.fx.splice(0)) {
-      if (f.k === 'harpoon' && f.p && f.q) effects.harpoon(f.p, f.q);
-      else if (f.k === 'shock' && f.p) effects.shock(f.p);
+      const c = creatures.find((x) => x.id === f.id);
+      const at = c ? [c.x, c.y, c.z] : f.p;
+      if (c) creatureViews.get(c.id)?.react(f);
+      switch (f.k) {
+        case 'harpoon': if (f.p && f.q) { effects.harpoon(f.p, f.q); sound.harpoon(loud(f.q)); } break;
+        case 'shock': if (f.p) { effects.shock(f.p); sound.shock(loud(f.p)); } break;
+        case 'bite': {
+          const d = divers.find((x) => x.id === f.id);
+          if (d) views[d.suit]?.hurt(d.local ? 1 : 0.7);
+          if (f.p) effects.hurt(f.p);
+          if (d?.local) { shake = 1; hud.hurt(); }
+          sound.hurt(d?.local ? 1 : loud(f.p) * 0.6);
+          break;
+        }
+        case 'calmed': if (at) { effects.calmed(at); sound.calmed(Math.max(0.5, loud(at))); } break;
+        case 'wrecked': if (at) { effects.wrecked(at); sound.wrecked(loud(at)); } break;
+        case 'down': sound.down(); break;
+        case 'revived': sound.revived(); break;
+      }
       hud.event(f, divers, creatures);
+    }
+    // While a diver calms an animal, it gives off a soft ripple and a chime that climbs as it settles.
+    for (const c of creatures) {
+      if (SPECIES[c.kind]?.action !== 'calm') continue;
+      let s = soothing.get(c.id);
+      if (!s) { s = { meter: c.meter, rising: 0, next: 0 }; soothing.set(c.id, s); }
+      if (c.meter > s.meter + 1e-4) s.rising = t;
+      s.meter = c.meter;
+      if (t - s.rising < 0.25 && t >= s.next) {
+        s.next = t + 0.55;
+        effects.soothe([c.x, c.y, c.z]);
+        sound.soothe(c.meter, Math.max(0.4, loud([c.x, c.y, c.z])));
+      }
     }
     effects.update(dt);
 
@@ -161,7 +198,9 @@ async function main() {
     const lead = new THREE.Vector3(me.vx, 0, me.vz).multiplyScalar(0.35);
     const goal = new THREE.Vector3(me.x, me.y, me.z).add(lead);
     camTarget.lerp(goal, 1 - Math.exp(-3.5 * dt));
-    placeCamera(camera, camTarget);
+    shake *= Math.exp(-8 * dt);
+    const jitter = shake * 0.18;
+    placeCamera(camera, jitter > 1e-3 ? camTarget.clone().add(new THREE.Vector3((Math.random() - 0.5) * jitter, (Math.random() - 0.5) * jitter, (Math.random() - 0.5) * jitter)) : camTarget);
 
     cutaway.diver.value.set(me.x, me.y, me.z);
     camera.updateMatrixWorld();

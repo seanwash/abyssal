@@ -1,4 +1,5 @@
 import type * as THREE from 'three/webgpu';
+import type { Fx } from '../../../shared/arena';
 import type { CreatureSpawn } from '../../../shared/level';
 import type { CreatureSnapshot } from '../net';
 import { DroneView } from './drone';
@@ -11,6 +12,8 @@ export interface CreatureView {
   /** Everything to add to the scene, including fixed scenery such as the lingcod's eggs. */
   objects: THREE.Object3D[];
   update(dt: number, t: number, s: CreatureSnapshot): void;
+  /** Something just happened to this creature, such as a harpoon hit or being calmed. */
+  react(f: Fx): void;
 }
 
 /** A view for each `kind` in `shared/creatures`. */

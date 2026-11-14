@@ -19,7 +19,7 @@ join the same dive.
 
 Controls: **WASD** or the arrow keys swim, **Space** or **E** rises, **Shift** or **Q** sinks. **F** or **Enter** acts on
 the nearest thing in front of you: hold it to calm the lingcod or buddy-breathe a downed diver, press it to harpoon the
-drone. **B** seats a bot buddy in the empty second seat, or removes it. A gamepad works too (left stick, X or right
+drone. **B** seats a bot buddy in the empty second seat, or removes it. **M** mutes the sound. A gamepad works too (left stick, X or right
 trigger to act).
 
 The dive is a small test reef: a reef flat at about 8 m, a sand channel (the Hollow) dropping to about 14 m,
@@ -76,7 +76,8 @@ server acknowledged every input (`npx tsx bots/smoke.ts`).
 | `shared/creatures/` | One file per creature's rules (`lingcod.ts`, `drone.ts`), the `Species` interface they share in `common.ts`, and the registry in `index.ts` |
 | `server/buddy.ts` | The bot buddy that fills the second seat |
 | `client/src/creatures/` | One file per creature's look, registered by kind in `index.ts` |
-| `client/src/fight.ts` | Harpoon and shock effects, and drawing helpers the creature views share |
+| `client/src/fight.ts` | Fight effects (harpoon line, sparks, shock, soothing ripples, the calm release), and drawing helpers the creature views share |
+| `client/src/sound.ts` | Fight sounds synthesised with Web Audio, so they add nothing to the download |
 
 To add a creature: write its rules in `shared/creatures/<kind>.ts` and its look in `client/src/creatures/<kind>.ts`,
 register both by kind, and place it in the level's `creatures` list. The arena, the network and the HUD need no

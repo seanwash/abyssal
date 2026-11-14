@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { color, float, mix, oneMinus, uniform } from 'three/tsl';
+import type { Fx } from '../../../shared/arena';
 import { DRONE } from '../../../shared/creatures/drone';
 import { ease, mesh, rim, sphere } from '../fight';
 import type { CreatureSnapshot } from '../net';
@@ -17,13 +18,17 @@ export class DroneView implements CreatureView {
   private charge = uniform(0);
   private wreck = uniform(0);
   private lens = uniform(1);
+  private hit = uniform(0);
+  private jolt = 0;
   private spin = 0;
 
   constructor() {
     this.root.rotation.order = 'YXZ';
     const brass = new THREE.MeshStandardNodeMaterial({ metalness: 0.85, roughness: 0.38 });
     brass.colorNode = mix(color(0xb38a3c), color(0x3a3024), this.wreck);
-    brass.emissiveNode = color(0x7fe0ff).mul(this.charge.mul(rim(1.5)).mul(2.2)).add(color(0x5a4420).mul(rim(3).mul(oneMinus(this.wreck)).mul(0.5)));
+    brass.emissiveNode = color(0xfff2d8).mul(this.hit.mul(rim(0.8).add(0.6)))
+      .add(color(0x7fe0ff).mul(this.charge.mul(rim(1.5)).mul(2.2)))
+      .add(color(0x5a4420).mul(rim(3).mul(oneMinus(this.wreck)).mul(0.5)));
     const iron = new THREE.MeshStandardNodeMaterial({ metalness: 0.7, roughness: 0.55 });
     iron.colorNode = color(0x2e2f30);
     const lens = new THREE.MeshBasicNodeMaterial({ fog: false });
@@ -69,8 +74,16 @@ export class DroneView implements CreatureView {
     this.lens.value = wrecked ? 0 : alert ? 1.6 + Math.sin(t * 14) * 0.4 : 0.8;
     this.spin += dt * (wrecked ? 0 : 30);
     for (const r of this.rotors) r.rotation.z = this.spin;
-    const j = charging ? s.charge * 0.03 : 0;
-    this.body.position.set((Math.random() - 0.5) * j, Math.sin(t * 2.3) * 0.05 + (Math.random() - 0.5) * j, 0);
-    this.body.rotation.z = wrecked ? 0.7 : Math.sin(t * 1.7) * 0.06;
+    this.hit.value *= Math.exp(-12 * dt);
+    this.jolt *= Math.exp(-9 * dt);
+    const j = (charging ? s.charge * 0.03 : 0) + this.jolt * 0.08;
+    this.body.position.set((Math.random() - 0.5) * j, Math.sin(t * 2.3) * 0.05 + (Math.random() - 0.5) * j, -this.jolt * 0.15);
+    this.body.rotation.z = (wrecked ? 0.7 : Math.sin(t * 1.7) * 0.06) + Math.sin(t * 50) * this.jolt * 0.25;
+  }
+
+  react(f: Fx) {
+    if (f.k !== 'harpoon' && f.k !== 'wrecked') return;
+    this.hit.value = f.k === 'wrecked' ? 2.5 : 1.4;
+    this.jolt = 1;
   }
 }

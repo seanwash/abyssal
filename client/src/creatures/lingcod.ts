@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { color, mix, mx_noise_float, positionLocal, uniform } from 'three/tsl';
+import type { Fx } from '../../../shared/arena';
 import { LING } from '../../../shared/creatures/lingcod';
 import type { CreatureSpawn, Point } from '../../../shared/level';
 import { mulberry32 } from '../../../shared/rng';
@@ -19,6 +20,10 @@ export class LingcodView implements CreatureView {
   private jaw = new THREE.Group();
   private sick = uniform(1);
   private flare = uniform(0);
+  /** A pale glow that washes over the fish as it is soothed, and flares when the sickness leaves it. */
+  private relief = uniform(0);
+  private shiver = 0;
+  private lastMeter = 0;
   private swim = 0;
   private last = new THREE.Vector3();
 
@@ -28,7 +33,8 @@ export class LingcodView implements CreatureView {
     skin.colorNode = mix(color(0x5a5a36), color(0xc4ad72), mottle);
     skin.emissiveNode = color(0x9b5cff).mul(this.sick.mul(rim(2).mul(2.4).add(0.45)))
       .add(color(0x9fb080).mul(rim(3).mul(0.5)))
-      .add(color(0xffb070).mul(this.flare.mul(rim(1.5)).mul(1.4)));
+      .add(color(0xffb070).mul(this.flare.mul(rim(1.5)).mul(1.4)))
+      .add(color(0xe8f4ff).mul(this.relief.mul(rim(1.2).mul(1.6).add(0.25))));
     const eye = new THREE.MeshBasicNodeMaterial();
     eye.colorNode = mix(color(0xe8d070), color(0xd9a8ff), this.sick);
 
@@ -53,12 +59,19 @@ export class LingcodView implements CreatureView {
     this.objects = [this.root, buildNest(spawn.at)];
   }
 
-  update(dt: number, _t: number, s: CreatureSnapshot) {
+  update(dt: number, t: number, s: CreatureSnapshot) {
     this.root.position.set(s.x, s.y, s.z);
     const speed = dt > 0 ? this.last.distanceTo(this.root.position) / dt : 0;
     this.last.copy(this.root.position);
     this.root.rotation.set(0, s.yaw, 0);
     this.body.rotation.x = s.pitch;
+
+    // Calming shows as a slow breathing glow while the meter rises.
+    const soothed = s.meter > this.lastMeter + 1e-4;
+    this.lastMeter = s.meter;
+    const breathe = soothed ? 0.35 + Math.sin(t * 6) * 0.15 : 0;
+    this.relief.value += (Math.max(breathe, 0) - this.relief.value) * ease(dt, soothed ? 6 : 1.5);
+    this.shiver *= Math.exp(-3 * dt);
 
     const calm = s.mode === LING.calm;
     const sick = calm ? 0 : 1 - s.meter * 0.7;
@@ -71,7 +84,13 @@ export class LingcodView implements CreatureView {
 
     this.swim += dt * (3 + Math.min(speed, 6) * 2.5);
     this.tail.rotation.y = Math.sin(this.swim) * (0.25 + Math.min(0.35, speed * 0.08)) + (coil ? s.charge * 0.6 : 0);
-    this.body.rotation.y = Math.sin(this.swim - 1) * 0.06;
+    this.body.rotation.y = Math.sin(this.swim - 1) * 0.06 + Math.sin(t * 40) * this.shiver * 0.15;
+  }
+
+  react(f: Fx) {
+    if (f.k !== 'calmed') return;
+    this.relief.value = 1.1;
+    this.shiver = 1;
   }
 }
 

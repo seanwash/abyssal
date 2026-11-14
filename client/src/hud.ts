@@ -31,6 +31,7 @@ export class Hud {
   private banner: HTMLElement;
   private bannerUntil = 0;
   private hint: HTMLElement;
+  private hurtFlash: HTMLElement;
   private v = new THREE.Vector3();
 
   constructor() {
@@ -61,7 +62,8 @@ export class Hud {
     this.meterFill = this.meter.querySelector('.fill')!;
     this.banner = el('div', 'banner', this.root);
     this.hint = el('div', 'hint', this.root);
-    el('div', 'controls', this.root, '<b>WASD</b> or <b>arrows</b> swim &nbsp; <b>Space</b> / <b>E</b> rise &nbsp; <b>Shift</b> / <b>Q</b> sink &nbsp; <b>F</b> / <b>Enter</b> act &nbsp; <b>B</b> bot buddy');
+    this.hurtFlash = el('div', 'hurt-flash', this.root);
+    el('div', 'controls', this.root, '<b>WASD</b> or <b>arrows</b> swim &nbsp; <b>Space</b> / <b>E</b> rise &nbsp; <b>Shift</b> / <b>Q</b> sink &nbsp; <b>F</b> / <b>Enter</b> act &nbsp; <b>B</b> bot buddy &nbsp; <b>M</b> mute');
   }
 
   update(divers: DiverSnapshot[], status: NetStatus, camera: THREE.Camera, specimen: THREE.Vector3 | null, w: number, h: number) {
@@ -100,6 +102,13 @@ export class Hud {
       this.leader.setAttribute('x1', String(sx + (right ? 30 : -30))); this.leader.setAttribute('y1', String(sy));
       this.leader.setAttribute('x2', String(right ? lx : lx + 240)); this.leader.setAttribute('y2', String(ly + 30));
     }
+  }
+
+  /** Reddens the edges of the screen for a moment when your own diver is bitten or shocked. */
+  hurt() {
+    this.hurtFlash.classList.remove('show');
+    void this.hurtFlash.offsetWidth;
+    this.hurtFlash.classList.add('show');
   }
 
   /** Shows a short line across the top for something that just happened in the fight. */

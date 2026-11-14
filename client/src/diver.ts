@@ -5,18 +5,22 @@ import {
 } from 'three/tsl';
 import { SUITS } from '../../shared/constants';
 
-const BUBBLES = 40;
+const BUBBLES = 64;
 const RING = 12;
 const RING_RADIUS = 0.16;
 
-function rimMaterial(base: THREE.ColorRepresentation, rim: THREE.ColorRepresentation, rough = 0.6, metal = 0) {
+/** A suit material lit at its rim, which flashes warm while `hurt` is above zero. */
+function rimMaterial(hurt: UniformFloat, base: THREE.ColorRepresentation, rim: THREE.ColorRepresentation, rough = 0.6, metal = 0) {
   const b = new THREE.Color(base), r = new THREE.Color(rim);
   const m = new THREE.MeshStandardNodeMaterial({ roughness: rough, metalness: metal });
   m.colorNode = color(b);
   const f = pow(oneMinus(abs(dot(normalView, positionViewDirection))), 3.0);
-  m.emissiveNode = color(r).mul(f).mul(0.9);
+  m.emissiveNode = color(r).mul(f).mul(0.9).add(color(0xff7a55).mul(hurt).mul(f.mul(2.0).add(0.45)));
   return m;
 }
+
+const floatUniform = () => uniform(0);
+type UniformFloat = ReturnType<typeof floatUniform>;
 
 /** A procedural scuba diver, built prone along +z, with headlamp and exhaled bubbles. */
 export class DiverView {
@@ -35,14 +39,16 @@ export class DiverView {
   private bank = 0;
   private pitch = 0;
   private roll = 0;
+  private hurtGlow = floatUniform();
+  private jolt = 0;
   readonly lampStrength = uniform(1);
 
   constructor(readonly suit: number) {
     const suitColor = new THREE.Color(SUITS[suit]?.color ?? SUITS[0].color);
-    const neoprene = rimMaterial(0x1a1f22, suitColor.clone().multiplyScalar(1.4), 0.75);
-    const panel = rimMaterial(suitColor, suitColor, 0.55);
-    const steel = rimMaterial(0xc9c3b0, 0x9fd8d0, 0.35, 0.7);
-    const rubber = rimMaterial(0x111416, 0x6a8a88, 0.8);
+    const neoprene = rimMaterial(this.hurtGlow, 0x1a1f22, suitColor.clone().multiplyScalar(1.4), 0.75);
+    const panel = rimMaterial(this.hurtGlow, suitColor, suitColor, 0.55);
+    const steel = rimMaterial(this.hurtGlow, 0xc9c3b0, 0x9fd8d0, 0.35, 0.7);
+    const rubber = rimMaterial(this.hurtGlow, 0x111416, 0x6a8a88, 0.8);
 
     const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.21, 0.62, 6, 16), neoprene);
     torso.rotation.x = Math.PI / 2;
@@ -74,7 +80,7 @@ export class DiverView {
       const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.075, 0.42, 4, 10), neoprene);
       thigh.rotation.x = Math.PI / 2;
       thigh.position.z = -0.26;
-      const fin = new THREE.Mesh(this.finGeometry(), rimMaterial(suitColor.clone().multiplyScalar(0.55), suitColor, 0.5));
+      const fin = new THREE.Mesh(this.finGeometry(), rimMaterial(this.hurtGlow, suitColor.clone().multiplyScalar(0.55), suitColor, 0.5));
       fin.position.z = -0.52;
       leg.add(thigh, fin);
       this.legs.push(leg);
@@ -128,8 +134,17 @@ export class DiverView {
     this.plumb.visible = present;
   }
 
-  /** `ground` is the height of the first surface straight below the diver. */
-  /** A diver out of air (`down`) rolls onto its side, stops kicking and its lamp dims. */
+  /** A bite or shock: the suit flashes, the body jolts and air escapes in a burst of bubbles. */
+  hurt(strength = 1) {
+    this.hurtGlow.value = strength;
+    this.jolt = strength;
+    this.exhale(Math.round(10 + strength * 14), 1.6);
+  }
+
+  /**
+   * `ground` is the height of the first surface straight below the diver. A diver out of air
+   * (`down`) rolls onto its side, stops kicking and its lamp dims.
+   */
   update(dt: number, t: number, pos: THREE.Vector3, yaw: number, vel: THREE.Vector3, ground: number, down = false) {
     this.root.position.copy(pos);
     this.updatePlumb(pos, ground);
@@ -141,7 +156,10 @@ export class DiverView {
     this.bank += (-dyaw * 2.5 - this.bank) * (1 - Math.exp(-5 * dt));
     this.root.rotation.set(0, yaw, 0);
     this.roll += ((down ? 1.9 : 0) - this.roll) * (1 - Math.exp(-3 * dt));
-    this.body.rotation.set(this.pitch, 0, THREE.MathUtils.clamp(this.bank, -0.5, 0.5) + this.roll);
+    this.hurtGlow.value *= Math.exp(-5 * dt);
+    this.jolt *= Math.exp(-7 * dt);
+    const shudder = Math.sin(t * 55) * this.jolt * 0.35;
+    this.body.rotation.set(this.pitch + shudder * 0.5, 0, THREE.MathUtils.clamp(this.bank, -0.5, 0.5) + this.roll + shudder);
     this.lamp.intensity = this.lampIntensity * (down ? 0.2 : 1);
     this.lampStrength.value = down ? 0.2 : 1;
     this.body.position.y = Math.sin(t * 1.1) * 0.04;
@@ -159,17 +177,7 @@ export class DiverView {
   private updateBubbles(dt: number, t: number) {
     if (t > this.nextBreath) {
       this.nextBreath = t + 3.2 + Math.random() * 1.2;
-      const mouth = new THREE.Vector3(0, 0.05, 0.66).applyMatrix4(this.body.matrixWorld);
-      let spawned = 0;
-      for (const b of this.bubbleState) {
-        if (b.age < b.life) continue;
-        b.p.copy(mouth).add(new THREE.Vector3((Math.random() - 0.5) * 0.15, Math.random() * 0.1, (Math.random() - 0.5) * 0.15));
-        b.v = 0.9 + Math.random() * 0.8;
-        b.age = -spawned * 0.035;
-        b.life = 3 + Math.random() * 2;
-        b.s = 0.018 + Math.random() * Math.random() * 0.06;
-        if (++spawned > 14) break;
-      }
+      this.exhale(15, 1);
     }
     const m = new THREE.Matrix4();
     const q = new THREE.Quaternion();
@@ -189,6 +197,22 @@ export class DiverView {
       this.bubbles.setMatrixAt(i, m);
     });
     this.bubbles.instanceMatrix.needsUpdate = true;
+  }
+
+  /** Releases up to `count` bubbles from the regulator; `force` above 1 spreads them wider and faster. */
+  exhale(count: number, force: number) {
+    const mouth = new THREE.Vector3(0, 0.05, 0.66).applyMatrix4(this.body.matrixWorld);
+    const spread = 0.15 * force;
+    let spawned = 0;
+    for (const b of this.bubbleState) {
+      if (b.age < b.life) continue;
+      b.p.copy(mouth).add(new THREE.Vector3((Math.random() - 0.5) * spread, Math.random() * 0.1 * force, (Math.random() - 0.5) * spread));
+      b.v = (0.9 + Math.random() * 0.8) * force;
+      b.age = -spawned * 0.035 / force;
+      b.life = 3 + Math.random() * 2;
+      b.s = 0.018 + Math.random() * Math.random() * 0.06;
+      if (++spawned >= count) break;
+    }
   }
 
   /** A faint vertical line from the diver to the ground with a small ring where it lands, so height reads in the isometric view. */
