@@ -1,4 +1,7 @@
-import type { Point } from "../level";
+import type { ArenaDiver } from "../arena";
+import { SURFACE_Y } from "../constants";
+import type { Level, Point } from "../level";
+import { clearLine, floorLimit } from "../physics";
 import { baseCreature, dist3, faceAlong, glide } from "./common";
 import type { Creature, Species, World } from "./common";
 
@@ -26,10 +29,17 @@ const BOUT = 3.2;
 const NOTICE = 9;
 const SWIM = 3.2;
 const BUZZ = 6;
+/** A pass that has not reached its point by then, such as one blocked by rock, gives up. */
+const PASS_TIME = 4;
+/** How far past the diver a pass carries on, tried longest first. */
+const OVERSHOOT = [4, 2.5, 1] as const;
 
 interface SeaLion extends Creature {
   timer: number;
-  /** Healthy: the loop it swims, the waypoint it heads for, the pass it is making, and seconds before the next. */
+  /**
+   * Healthy: the loop it swims, the waypoint it heads for, the pass it is making, and seconds
+   * before the next pass, or, during a pass, before it gives up.
+   */
   route: Point[];
   waypoint: number;
   pass: Point | null;
@@ -44,21 +54,43 @@ const size = { r: 0.5, h: 0.35 };
 
 const healthy = (c: SeaLion) => c.mode === SEALION.swim;
 
+/**
+ * Where a pass at diver `d` aims: a metre to the side of them and on beyond, cut short where rock,
+ * the seafloor or the surface is in the way, so the point is always open water. Null when there is
+ * no room past them.
+ */
+const passPoint = (level: Level, c: SeaLion, d: ArenaDiver) => {
+  const dx = d.sim.x - c.x;
+  const dz = d.sim.z - c.z;
+  const l = Math.hypot(dx, dz) || 1;
+  const ux = dx / l;
+  const uz = dz / l;
+  for (const over of OVERSHOOT) {
+    const p = {
+      x: d.sim.x + ux * over - uz * 1.1,
+      y: d.sim.y + 0.3,
+      z: d.sim.z + uz * over + ux * 1.1,
+    };
+    const beyond = { x: p.x + ux * 1.5, y: p.y, z: p.z + uz * 1.5 };
+    if (
+      p.y > floorLimit(level, p.x, p.z, size.r, size.h) + 0.5 &&
+      p.y < SURFACE_Y - 1.2 &&
+      clearLine(level, d.sim, beyond)
+    ) {
+      return p;
+    }
+  }
+  return null;
+};
+
 /** The healthy sea lion's step: a loop around its patch, broken by passes at divers that come near. */
 const swim = (c: SeaLion, world: World, dt: number) => {
   c.passFor = Math.max(0, c.passFor - dt);
   if (!c.pass && c.passFor <= 0) {
     const d = world.nearest(c, NOTICE);
     if (d) {
-      // Aim to pass a metre to the side of the diver and carry on beyond.
-      const dx = d.sim.x - c.x;
-      const dz = d.sim.z - c.z;
-      const l = Math.hypot(dx, dz) || 1;
-      c.pass = {
-        x: d.sim.x + (dx / l) * 4 - (dz / l) * 1.1,
-        y: d.sim.y + 0.3,
-        z: d.sim.z + (dz / l) * 4 + (dx / l) * 1.1,
-      };
+      c.pass = passPoint(world.level, c, d);
+      c.passFor = c.pass ? PASS_TIME : 1;
       c.buzzed = false;
     }
   }
@@ -69,7 +101,7 @@ const swim = (c: SeaLion, world: World, dt: number) => {
       c.buzzed = true;
       world.emit({ k: "buzzed", id: c.id, by: close.id, p: [c.x, c.y, c.z] });
     }
-    if (dist3(c, c.pass) < 1.5) {
+    if (dist3(c, c.pass) < 1.5 || c.passFor <= 0) {
       c.pass = null;
       c.passFor = 7 + (world.clock % 4);
     }
