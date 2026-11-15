@@ -55,7 +55,7 @@ const envelope = (
 };
 
 /** A pitched tone that glides from `from` to `to` hertz. */
-const tone = (
+export const tone = (
   type: OscillatorType,
   from: number,
   to: number,
@@ -79,7 +79,7 @@ const tone = (
 };
 
 /** Filtered noise: low `freq` for thumps and rumbles, high for hiss and crackle. */
-const hiss = (
+export const hiss = (
   filter: BiquadFilterType,
   freq: number,
   dur: number,
@@ -103,6 +103,9 @@ const hiss = (
 
 /** Gain for a sound `dist` metres from the listening diver: full nearby, silent past about 16 m. */
 export const near = (dist: number) => Math.max(0, Math.min(1, 1.2 - dist / 14));
+
+/** How loud a sound at a point is for the listening diver: by distance, or full when it has no place. */
+export type Loudness = (p?: ArrayLike<number>) => number;
 
 const PENTATONIC = [0, 2, 4, 7, 9, 12, 14];
 
@@ -176,25 +179,6 @@ export const sound = {
     for (const [i, f] of [523.25, 659.25, 783.99, 1046.5, 1318.5].entries()) {
       tone("sine", f, f, 1.8, 0.1 * v, 0.2 + i * 0.08, 0.02);
     }
-  },
-  /** A school bolts: a rush of tail beats, quick and scattered. */
-  scattered(v = 1) {
-    for (let i = 0; i < 6; i += 1) {
-      hiss("bandpass", 1400 + i * 260, 0.07, 0.16 * v, i * 0.035);
-    }
-    tone("sine", 260, 120, 0.25, 0.08 * v);
-  },
-  /** A sick sea lion's seizure: ragged, strangled barks. */
-  seizing(v = 1) {
-    for (let i = 0; i < 4; i += 1) {
-      tone("sawtooth", 420 - i * 30, 210, 0.16, 0.12 * v, i * 0.22);
-      hiss("bandpass", 900, 0.12, 0.1 * v, i * 0.22);
-    }
-  },
-  /** A healthy sea lion streaks past: a whoosh of bubbles and one bright bark. */
-  buzzed(v = 1) {
-    hiss("bandpass", 600, 0.45, 0.3 * v);
-    tone("square", 520, 640, 0.12, 0.06 * v, 0.15);
   },
   /** Something falls from a wreck to the floor. */
   dropped(v = 1) {

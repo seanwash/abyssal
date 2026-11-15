@@ -25,7 +25,7 @@ import {
   PALETTE,
 } from "./env";
 import { Effects } from "./fight";
-import { Hud, SEIZURE_HEARD } from "./hud";
+import { Hud } from "./hud";
 import { readAct, readSwim } from "./input";
 import {
   applyIsoScene,
@@ -43,6 +43,7 @@ import type { CreatureSnapshot, DiverSnapshot, LootSnapshot } from "./net";
 import { SeaNettle } from "./nettle";
 import { PARTY } from "./party";
 import { near, sound } from "./sound";
+import type { Loudness } from "./sound";
 import { StationLine } from "./station/line";
 import { StationScreen } from "./station/screen";
 import { settleWater, tuneWater, water } from "./water";
@@ -120,9 +121,6 @@ const placeCamera = (camera: THREE.Camera, target: THREE.Vector3) => {
   );
   camera.lookAt(target);
 };
-
-/** How loud a sound at a point is for the listening diver: by distance, or full when it has no place. */
-type Loudness = (p?: ArrayLike<number>) => number;
 
 /** What one fx needs from the frame it plays in. */
 interface FxScene {
@@ -343,7 +341,7 @@ const main = async () => {
       sound.bagged(v, it?.category === "fossil" || it?.category === "evidence");
     }
   };
-  /** The effect and sound each kind of fx plays; kinds left out only show in the HUD. */
+  /** The effect and sound each of the fight's own kinds of fx plays; kinds left out only show in the HUD. */
   const fxPlayers: Partial<Record<Fx["k"], (s: FxScene) => void>> = {
     harpoon: ({ f, loud }) => {
       if (f.p && f.q) {
@@ -381,25 +379,6 @@ const main = async () => {
       if (at) {
         effects.wrecked(at);
         sound.wrecked(loud(at));
-      }
-    },
-    seizing: ({ at, me }) => {
-      if (at) {
-        effects.seizing(at);
-        const d = Math.hypot(at[0] - me.x, at[1] - me.y, at[2] - me.z);
-        sound.seizing(Math.max(0, 1 - d / SEIZURE_HEARD));
-      }
-    },
-    buzzed: ({ f, me, loud }) => {
-      if (f.p) {
-        effects.buzzed(f.p);
-        sound.buzzed(f.by === me.id ? 1 : loud(f.p) * 0.6);
-      }
-    },
-    scattered: ({ f, loud }) => {
-      if (f.p) {
-        effects.scattered(f.p);
-        sound.scattered(loud(f.p));
       }
     },
     down: () => {
@@ -443,7 +422,12 @@ const main = async () => {
       const c = creatures.find((x) => x.id === f.id);
       const at = c ? [c.x, c.y, c.z] : f.p;
       if (c) {
-        creatureViews.get(c.id)?.react(f);
+        const news = creatureViews
+          .get(c.id)
+          ?.react(f, { effects, at: [c.x, c.y, c.z], me, loud });
+        if (news) {
+          hud.news(news);
+        }
       }
       fxPlayers[f.k]?.({ f, at, divers, me, loud });
       hud.event(f, divers, creatures);

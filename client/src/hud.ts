@@ -42,8 +42,6 @@ const KEYS = [
       `<span>${keys.replaceAll(/\S+/gu, "<b>$&</b>")} ${what}</span>`
   )
   .join(" ");
-/** How far off, in metres, a sea lion's seizure is heard and announced: far enough to carry from the beach. */
-export const SEIZURE_HEARD = 40;
 /** Seconds an area's guide fills an empty caption after a diver swims in. */
 const GUIDE_SECONDS = 14;
 
@@ -334,8 +332,6 @@ export class Hud {
   /** The current area's guide, and until when it fills an empty caption. */
   private guide = "";
   private guideUntil = 0;
-  /** When the top rule last announced a seizure, so repeated bouts do not crowd it. */
-  private seizureNews = -Infinity;
   /** Why this tab is not in the party, from the connection, shown under depth. */
   private notice = "";
   private keysLeft = localStorage.getItem(KEYS_SEEN) ? 0 : KEY_HINT_SECONDS;
@@ -519,20 +515,6 @@ export class Hud {
     }
   }
 
-  /** The line for a sea lion's seizure, or none if it is far off or one was announced in the last half minute. */
-  private seizure(f: Fx, divers: DiverSnapshot[]) {
-    const now = performance.now();
-    const me = localDiver(divers);
-    const far =
-      !f.p ||
-      Math.hypot(f.p[0] - me.x, f.p[1] - me.y, f.p[2] - me.z) > SEIZURE_HEARD;
-    if (far || now - this.seizureNews < 30_000) {
-      return "";
-    }
-    this.seizureNews = now;
-    return "A sea lion is seizing on the breakwater.";
-  }
-
   /** Frame time, frame rate and ping, on the bottom rule; the backtick key shows or hides them. */
   stats(net: Net, frameMs: number) {
     this.frames += 1;
@@ -556,7 +538,7 @@ export class Hud {
     this.hurtFlash.classList.add("show");
   }
 
-  /** Shows a short line in the top rule for something that just happened in the dive. */
+  /** Shows a short line in the top rule for one of the fight's own events; a creature's view gives the line for its species' own events. */
   event(f: Fx, divers: DiverSnapshot[], creatures: CreatureSnapshot[]) {
     const who = nameOf(f.id, divers, creatures);
     const by = nameOf(f.by, divers, creatures);
@@ -584,23 +566,17 @@ export class Hud {
       clear: `Reef clear in ${Math.round(f.t ?? 0)} s. It resets shortly.`,
       wiped: "Both divers are down. The dive starts over.",
       reset: "The reef resets: the sick animals and the machines are back.",
-      seizing: f.k === "seizing" ? this.seizure(f, divers) : "",
-      buzzed:
-        f.by === divers.find((d) => d.local)?.id
-          ? "A sea lion buzzes past you, playing."
-          : "",
-      // Only a school spooked by a hunter is news; one a diver swam into is just fish.
-      scattered: f.by
-        ? "Blue rockfish scatter: something is hunting nearby."
-        : "",
     }[f.k as string];
-    if (!line) {
-      return;
+    if (line) {
+      this.news(line, f.k === "clear" || f.k === "pried" ? 6000 : 3200);
     }
+  }
+
+  /** Shows `line` in the top rule for `ms` milliseconds, such as the line a creature's view gives for its own event. */
+  news(line: string, ms = 3200) {
     this.banner.innerHTML = line;
     this.banner.classList.add("show");
-    this.bannerUntil =
-      performance.now() + (f.k === "clear" || f.k === "pried" ? 6000 : 3200);
+    this.bannerUntil = performance.now() + ms;
   }
 
   fight(

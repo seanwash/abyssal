@@ -19,12 +19,14 @@ import {
 } from "three/tsl";
 import * as THREE from "three/webgpu";
 
-import type { CreatureView } from ".";
+import type { CreatureView, Stage } from ".";
+import type { Fx } from "../../../shared/arena";
 import { ROCKFISH } from "../../../shared/creatures/rockfish";
 import type { CreatureSpawn } from "../../../shared/level";
 import { mulberry32 } from "../../../shared/rng";
 import { ease, rim } from "../fight";
 import type { CreatureSnapshot } from "../net";
+import { hiss, tone } from "../sound";
 
 /** The school's modes, as the rules send them. */
 
@@ -292,7 +294,24 @@ const school = (): Fish[] => {
   }));
 };
 
-const ignore = (): void => undefined;
+/**
+ * A school bolting: a flash of silver flanks out from where it was and a rush of tail beats, quick
+ * and scattered. Only a school spooked by a hunter is news; one a diver swam into is just fish.
+ */
+const scattered = (f: Fx, { effects, loud }: Stage) => {
+  if (f.k !== "scattered") {
+    return "";
+  }
+  if (f.p) {
+    effects.burst(f.p, 26, 0xc8_d8_e8, 3.2, 0, 0.7, 0.03);
+    const v = loud(f.p);
+    for (let i = 0; i < 6; i += 1) {
+      hiss("bandpass", 1400 + i * 260, 0.07, 0.16 * v, i * 0.035);
+    }
+    tone("sine", 260, 120, 0.25, 0.08 * v);
+  }
+  return f.by ? "Blue rockfish scatter: something is hunting nearby." : "";
+};
 
 /** Wraps an angle difference into -π..π. */
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -487,5 +506,5 @@ export class RockfishView implements CreatureView {
   }
 
   /** The rules drive the scatter through mode and charge, so a harpoon or bite elsewhere never spooks the school. */
-  readonly react = ignore;
+  readonly react = scattered;
 }

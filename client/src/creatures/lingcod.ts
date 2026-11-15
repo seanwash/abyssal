@@ -147,10 +147,10 @@ export class LingcodView implements CreatureView {
   }
 
   react(f: Fx) {
-    if (f.k !== "calmed") {
-      return;
+    if (f.k === "calmed") {
+      this.relief.value = 1.1;
+      this.shiver = 1;
     }
-    this.relief.value = 1.1;
-    this.shiver = 1;
+    return "";
   }
 }

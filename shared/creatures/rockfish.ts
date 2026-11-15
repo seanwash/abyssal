@@ -12,6 +12,9 @@ import type { Creature, Species, World } from "./common";
 
 export const ROCKFISH = { school: 0, scatter: 1 } as const;
 
+/** The school bolts, from the hunting creature `by`, or from a diver when `by` is unset. */
+export type SchoolEvent = "scattered";
+
 /** A creature hunting within this distance spooks the school. */
 const SPOOK = 7;
 /** A diver this close spooks the school. */

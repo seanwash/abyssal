@@ -87,19 +87,9 @@ export class Effects {
     );
   }
 
-  /** A school of fish bolts: a flash of silver flanks out from where it was. */
-  scattered(p: ArrayLike<number>) {
-    this.sparks.burst(p, 26, 0xc8_d8_e8, 3.2, 0, 0.7, 0.03);
-  }
-
-  /** A sea lion convulses: violet motes thrown off its body. */
-  seizing(p: ArrayLike<number>) {
-    this.sparks.burst(p, 18, 0xb4_70_ff, 1.6, 0.6, 0.9, 0.04);
-  }
-
-  /** A sea lion streaks past: a trail of bubbles. */
-  buzzed(p: ArrayLike<number>) {
-    this.sparks.burst(p, 22, 0xe0_f4_ff, 1.4, 0.9, 1.2, 0.03);
+  /** Motes thrown out from `p`, for an effect a creature's view plays itself; see `Sparks.burst`. */
+  burst(...args: Parameters<Sparks["burst"]>) {
+    this.sparks.burst(...args);
   }
 
   /** Grit off a fossil while divers pry it. */

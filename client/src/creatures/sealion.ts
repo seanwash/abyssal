@@ -11,12 +11,13 @@ import {
 } from "three/tsl";
 import * as THREE from "three/webgpu";
 
-import type { CreatureView } from ".";
+import type { CreatureView, Stage } from ".";
 import type { Fx } from "../../../shared/arena";
 import { SEALION } from "../../../shared/creatures/sealion";
-import type { CreatureSpawn } from "../../../shared/level";
+import type { CreatureSpawn, Point } from "../../../shared/level";
 import { ease, rim } from "../fight";
 import type { CreatureSnapshot } from "../net";
+import { hiss, tone } from "../sound";
 
 const FUR = new THREE.Color(0x5a_3f_2b);
 const BELLY = new THREE.Color(0xa6_80_58);
@@ -225,6 +226,25 @@ const geometry = () => {
 const jerk = (t: number, hz: number, phase: number) =>
   Math.tanh(Math.sin(t * hz + phase) * 4);
 
+/** How far off, in metres, a seizure is heard and announced: far enough to carry from the beach. */
+const SEIZURE_HEARD = 40;
+/** Milliseconds after one seizure is announced before the top rule announces another. */
+const SEIZURE_NEWS_GAP = 30_000;
+
+/** A sick sea lion's seizure: ragged, strangled barks. */
+const seizingSound = (v: number) => {
+  for (let i = 0; i < 4; i += 1) {
+    tone("sawtooth", 420 - i * 30, 210, 0.16, 0.12 * v, i * 0.22);
+    hiss("bandpass", 900, 0.12, 0.1 * v, i * 0.22);
+  }
+};
+
+/** A healthy sea lion streaks past: a whoosh of bubbles and one bright bark. */
+const buzzedSound = (v: number) => {
+  hiss("bandpass", 600, 0.45, 0.3 * v);
+  tone("square", 520, 640, 0.12, 0.06 * v, 0.15);
+};
+
 /** How far the animal lies over onto its side in each mode. */
 const SIDE = [0, 0.9, 0.45, 0.2];
 
@@ -236,6 +256,8 @@ const SIDE = [0, 0.9, 0.45, 0.2];
  * flippers while a violet glow builds with the bout; calming drains the violet.
  */
 export class SeaLionView implements CreatureView {
+  /** When the top rule last announced a seizure, so repeated bouts do not crowd it. */
+  private static seizureNews = -Infinity;
   readonly root = new THREE.Group();
   readonly objects = [this.root];
   private pose = new THREE.Group();
@@ -443,11 +465,35 @@ export class SeaLionView implements CreatureView {
     }
   }
 
-  react(f: Fx) {
-    if (f.k !== "calmed") {
-      return;
+  react(f: Fx, { effects, at, me, loud }: Stage) {
+    if (f.k === "calmed") {
+      this.relief.value = 1.1;
+      this.shiver = 1;
+    } else if (f.k === "seizing") {
+      // Violet motes thrown off the convulsing body.
+      effects.burst(at, 18, 0xb4_70_ff, 1.6, 0.6, 0.9, 0.04);
+      const d = Math.hypot(at[0] - me.x, at[1] - me.y, at[2] - me.z);
+      seizingSound(Math.max(0, 1 - d / SEIZURE_HEARD));
+      return SeaLionView.seizure(f, me);
+    } else if (f.k === "buzzed" && f.p) {
+      // A trail of bubbles where it streaked past.
+      effects.burst(f.p, 22, 0xe0_f4_ff, 1.4, 0.9, 1.2, 0.03);
+      buzzedSound(f.by === me.id ? 1 : loud(f.p) * 0.6);
+      return f.by === me.id ? "A sea lion buzzes past you, playing." : "";
     }
-    this.relief.value = 1.1;
-    this.shiver = 1;
+    return "";
+  }
+
+  /** The line for a seizure, or none if it is far off or one was announced in the last half minute. */
+  private static seizure(f: Fx, me: Point) {
+    const now = performance.now();
+    const far =
+      !f.p ||
+      Math.hypot(f.p[0] - me.x, f.p[1] - me.y, f.p[2] - me.z) > SEIZURE_HEARD;
+    if (far || now - SeaLionView.seizureNews < SEIZURE_NEWS_GAP) {
+      return "";
+    }
+    SeaLionView.seizureNews = now;
+    return "A sea lion is seizing on the breakwater.";
   }
 }

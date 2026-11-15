@@ -14,6 +14,9 @@ import type { Creature, Species, World } from "./common";
 
 export const SEALION = { swim: 0, haul: 1, seize: 2, calm: 3 } as const;
 
+/** A sick sea lion starts a seizure; a healthy one streaks past the diver `by`. */
+export type SeaLionEvent = "seizing" | "buzzed";
+
 const CALM_RATE = 0.16;
 const CALM_DECAY = 0.03;
 /** Seconds between seizures, and how long one lasts. */

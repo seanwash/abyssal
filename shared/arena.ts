@@ -1,5 +1,6 @@
 import { SURFACE_Y } from "./constants";
 import { SPECIES } from "./creatures";
+import type { CreatureEvent } from "./creatures";
 import { dist3 } from "./creatures/common";
 import type { Creature, CreatureShape, World } from "./creatures/common";
 import type { Level, Point } from "./level";
@@ -43,9 +44,14 @@ export interface ArenaDiver {
   target: Target | null;
 }
 
-/** Something that happened this tick, broadcast to clients for effects and messages. */
+/**
+ * Something that happened this tick, broadcast to clients for effects and messages. `k` is one of
+ * the fight's own events, which every species shares and the HUD plays, or a `CreatureEvent` that
+ * a species names for itself about the creature `id`, which only that creature's view plays.
+ */
 export interface Fx {
   k:
+    | CreatureEvent
     | "harpoon"
     | "bite"
     | "shock"
@@ -61,10 +67,7 @@ export interface Fx {
     | "dropped"
     | "returned"
     | "aboard"
-    | "dived"
-    | "scattered"
-    | "seizing"
-    | "buzzed";
+    | "dived";
   id?: string;
   by?: string;
   p?: [number, number, number];

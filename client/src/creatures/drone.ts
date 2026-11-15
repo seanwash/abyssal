@@ -122,10 +122,10 @@ export class DroneView implements CreatureView {
   }
 
   react(f: Fx) {
-    if (f.k !== "harpoon" && f.k !== "wrecked") {
-      return;
+    if (f.k === "harpoon" || f.k === "wrecked") {
+      this.hit.value = f.k === "wrecked" ? 2.5 : 1.4;
+      this.jolt = 1;
     }
-    this.hit.value = f.k === "wrecked" ? 2.5 : 1.4;
-    this.jolt = 1;
+    return "";
   }
 }

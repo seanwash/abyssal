@@ -98,9 +98,9 @@ BROWSER=sparticuz PACE=4 W=800 H=450 QS='&scale=0.5' npm run bots
 | `shared/arena.ts` | The fight: air, buddy breathing, the action key's target and the reef's phases. It runs every creature through one interface. The server runs it |
 | `shared/creatures/` | One file per creature's rules (`lingcod.ts`, `drone.ts`), the `Species` interface they share in `common.ts`, and the registry in `index.ts` |
 | `server/buddy.ts` | The bot buddy that fills the second seat |
-| `client/src/creatures/` | One file per creature's look, registered by kind in `index.ts` |
+| `client/src/creatures/` | One file per creature's look, registered by kind in `index.ts`. Each view also plays its species' own events, such as the sea lion's seizure, with their sparks, sound and news line |
 | `client/src/fight.ts` | Fight effects (harpoon line, shock, the calm release), built from `sparks.ts`, `pulses.ts` (soothing ripples and flashes) and the drawing helpers in `fight-kit.ts` that the creature views share |
-| `client/src/sound.ts` | Fight sounds synthesised with Web Audio, so they add nothing to the download |
+| `client/src/sound.ts` | Fight sounds synthesised with Web Audio, so they add nothing to the download, and the `tone` and `hiss` a creature's view builds its own sounds from |
 | `client/src/nettle.ts` | Procedural _Chrysaora fuscescens_: scalloped bell, oral arms, tentacles, pulse |
 | `client/src/env.ts` | Seafloor with caustics, granite boulders, giant kelp, scatter, light shafts, marine snow |
 | `client/src/diver.ts` | Procedural diver with headlamp, plumb line, fin kick and exhaled bubbles |
@@ -115,6 +115,6 @@ BROWSER=sparticuz PACE=4 W=800 H=450 QS='&scale=0.5' npm run bots
 
 To add a find: add it to `shared/loot/items.ts`, give it a look in `client/src/loot/looks.ts`, and place it in the level's `loot` list. A creature that leaves something behind names it in its species' `drops`.
 
-To add a creature: write its rules in `shared/creatures/<kind>.ts` and its look in `client/src/creatures/<kind>.ts`, register both by kind (the rules through `anySpecies` with a type guard, as `isLingcod` does), and place it in the level's `creatures` list. The arena, the network and the HUD need no change.
+To add a creature: write its rules in `shared/creatures/<kind>.ts` and its look in `client/src/creatures/<kind>.ts`, register both by kind (the rules through `anySpecies` with a type guard, as `isLingcod` does), and place it in the level's `creatures` list. Events of its own, such as the sea lion's `seizing`, are a type beside its rules (`SeaLionEvent`) added to `CreatureEvent` in `shared/creatures/index.ts`; its view's `react` plays them and returns their news line. The arena, the network and the HUD need no change.
 
 Rendering uses three.js `WebGPURenderer` with TSL node materials; browsers without WebGPU fall back to WebGL2 automatically.
