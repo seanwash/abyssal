@@ -30,8 +30,7 @@ interface School extends Creature {
   from: Point;
 }
 
-export const isSchool = (c: Creature): c is School =>
-  "calmFor" in c && "from" in c;
+export const isSchool = (c: Creature): c is School => c.kind === "rockfish";
 
 const size = { r: 0.5, h: 0.4 };
 

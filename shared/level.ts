@@ -1,3 +1,6 @@
+import type { Kind } from "./creatures";
+import type { ItemKey } from "./loot/items";
+
 /**
  * What a level is made of, and the geometry queries the server and both clients share. A zone
  * module in `shared/zones` authors one: its ground, rocks, kelp, creatures, finds, stations and
@@ -44,7 +47,7 @@ export interface MapPoint {
 /** Where a creature starts. `kind` names its module in `shared/creatures`; `route` is a loop to patrol, for creatures that patrol. */
 export interface CreatureSpawn {
   id: string;
-  kind: string;
+  kind: Kind;
   at: Point;
   route?: Point[];
   /** A variant its species knows, such as a healthy sea lion rather than a sick one. */
@@ -53,7 +56,7 @@ export interface CreatureSpawn {
 /** Where a find lies. `item` names its entry in `shared/loot/items.ts`. */
 export interface LootSpot {
   id: string;
-  item: string;
+  item: ItemKey;
   at: Point;
 }
 /** A field station's descent line: a float on the surface above x, z, where divers climb out. */

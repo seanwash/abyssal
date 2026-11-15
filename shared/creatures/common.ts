@@ -2,6 +2,7 @@ import type { ArenaDiver, Fx } from "../arena";
 import { SURFACE_Y } from "../constants";
 import { boulderExtent, floorHeight } from "../level";
 import type { CreatureSpawn, Level, Point } from "../level";
+import type { ItemKey } from "../loot/items";
 import type { Body } from "../physics";
 
 /** The part of a creature's state that clients see: enough to draw it and to know what the action key does to it. */
@@ -65,7 +66,7 @@ export interface Species<C extends Creature = Creature> {
   /** How far from its home it is dangerous; the bot buddy keeps out of this. */
   territory?: number;
   /** The item it leaves behind once calmed or wrecked, by its key in `shared/loot/items.ts`. */
-  drops?: string;
+  drops?: ItemKey;
   spawn: (at: CreatureSpawn) => C;
   /** Whether it is out of the fight: calmed or wrecked, or never in it, like a school of fish. */
   done: (c: CreatureShape) => boolean;

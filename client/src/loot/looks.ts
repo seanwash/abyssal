@@ -9,6 +9,7 @@ import {
 } from "three/tsl";
 import * as THREE from "three/webgpu";
 
+import type { ItemKey } from "../../../shared/loot/items";
 import { mesh, rim, sphere } from "../fight";
 
 /**
@@ -52,7 +53,7 @@ const vial = (contents: number, glow: Glow) => {
   return g;
 };
 
-const LOOKS: Record<string, (glow: Glow) => THREE.Object3D> = {
+const LOOKS: Record<ItemKey, (glow: Glow) => THREE.Object3D> = {
   "urchin-test": (glow) => {
     const m = material(0x7a_4f_80, glow, 0xd8_a8_ff);
     m.colorNode = mix(
@@ -287,20 +288,5 @@ const LOOKS: Record<string, (glow: Glow) => THREE.Object3D> = {
   },
 };
 
-/** The find's model, with its centre at the origin's floor point. Unknown items get a plain pebble. */
-export const buildLook = (item: string, glow: Glow) => {
-  const look = LOOKS[item];
-  if (look) {
-    return look(glow);
-  }
-  const g = new THREE.Group();
-  g.add(
-    mesh(
-      sphere,
-      material(0x88_80_70, glow, 0xff_ff_ff),
-      [0, 0.06, 0],
-      [0.15, 0.08, 0.12]
-    )
-  );
-  return g;
-};
+/** The find's model, with its centre at the origin's floor point. */
+export const buildLook = (item: ItemKey, glow: Glow) => LOOKS[item](glow);

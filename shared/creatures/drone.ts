@@ -33,8 +33,7 @@ interface Drone extends Creature {
 }
 
 /** Whether a creature has a drone's state. */
-export const isDrone = (c: Creature): c is Drone =>
-  "route" in c && "waypoint" in c;
+export const isDrone = (c: Creature): c is Drone => c.kind === "drone";
 
 const size = { r: 0.4, h: 0.35 };
 

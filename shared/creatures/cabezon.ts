@@ -46,8 +46,7 @@ interface Cabezon extends Creature {
 }
 
 /** Whether a creature has a cabezon's state. */
-export const isCabezon = (c: Creature): c is Cabezon =>
-  "alone" in c && "lock" in c && "hit" in c;
+export const isCabezon = (c: Creature): c is Cabezon => c.kind === "cabezon";
 
 /** A flat fish: its belly is about `h` below its centre. */
 const size = { r: 0.4, h: 0.1 };

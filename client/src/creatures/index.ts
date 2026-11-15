@@ -1,6 +1,7 @@
 import type * as THREE from "three/webgpu";
 
 import type { Fx } from "../../../shared/arena";
+import type { Kind } from "../../../shared/creatures";
 import type { CreatureSpawn } from "../../../shared/level";
 import type { Effects } from "../fight";
 import type { CreatureSnapshot, DiverSnapshot } from "../net";
@@ -35,7 +36,7 @@ export interface CreatureView {
 }
 
 /** A view for each `kind` in `shared/creatures`. */
-export const VIEWS: Record<string, (spawn: CreatureSpawn) => CreatureView> = {
+export const VIEWS: Record<Kind, (spawn: CreatureSpawn) => CreatureView> = {
   lingcod: (s) => new LingcodView(s),
   drone: () => new DroneView(),
   cabezon: (s) => new CabezonView(s),

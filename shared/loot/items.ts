@@ -23,7 +23,7 @@ export interface Item {
   rare?: boolean;
 }
 
-export const ITEMS: Record<string, Item> = {
+const items = {
   "urchin-test": {
     latin: "Strongylocentrotus purpuratus",
     common: "Purple urchin test",
@@ -119,4 +119,10 @@ export const ITEMS: Record<string, Item> = {
     category: "evidence",
     note: "A brass sampling housing off the wrecked drone, stamped with a maker's mark someone filed half away.",
   },
-};
+} satisfies Record<string, Item>;
+
+/** An item's key: one of the entries above, which the level's finds, species' drops and the looks are checked against. */
+export type ItemKey = keyof typeof items;
+
+/** Every find by its key. Lookups take any string, since snapshots and saves carry the key as text. */
+export const ITEMS: Record<string, Item> = items;

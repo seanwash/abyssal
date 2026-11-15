@@ -33,8 +33,7 @@ interface Lingcod extends Creature {
 }
 
 /** Whether a creature has a lingcod's state. */
-export const isLingcod = (c: Creature): c is Lingcod =>
-  "lock" in c && "hit" in c;
+export const isLingcod = (c: Creature): c is Lingcod => c.kind === "lingcod";
 
 const size = { r: 0.5, h: 0.3 };
 

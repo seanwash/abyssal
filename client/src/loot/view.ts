@@ -5,7 +5,7 @@ import { SPECIES } from "../../../shared/creatures";
 import type { Level } from "../../../shared/level";
 import { LOOT } from "../../../shared/loot/haul";
 import { ITEMS } from "../../../shared/loot/items";
-import type { Category } from "../../../shared/loot/items";
+import type { Category, ItemKey } from "../../../shared/loot/items";
 import { ISO } from "../iso";
 import type { DiverSnapshot, LootSnapshot } from "../net";
 import { buildLook, glowUniform } from "./looks";
@@ -75,7 +75,7 @@ export class LootView {
     }
   }
 
-  private add(id: string, item: string) {
+  private add(id: string, item: ItemKey) {
     const glow = glowUniform();
     const look = buildLook(item, glow);
     const root = new THREE.Group();

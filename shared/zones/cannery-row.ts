@@ -1,4 +1,5 @@
-import type { MapPoint } from "../level";
+import type { CreatureSpawn, MapPoint } from "../level";
+import type { ItemKey } from "../loot/items";
 import { mapPoint } from "./build";
 import type { Placer, ZonePlan } from "./build";
 
@@ -294,7 +295,7 @@ export const CANNERY_ROW: ZonePlan = {
       mapPoint(-46, 10, -4),
       mapPoint(-28, 6, -4.5),
     ];
-    const lie = (id: string, item: string, at: MapPoint) => ({
+    const lie = (id: string, item: ItemKey, at: MapPoint) => ({
       id,
       item,
       at: z.onFloor(at.u, at.v, 0.08),
@@ -308,7 +309,7 @@ export const CANNERY_ROW: ZonePlan = {
           kind: "sealion",
           at: mapPoint(LEDGE.u, LEDGE.v, 0.35),
         },
-        ...[0, 2].map((start, i) => {
+        ...[0, 2].map((start, i): CreatureSpawn => {
           const loop = [
             ...SEA_LION_LOOP.slice(start),
             ...SEA_LION_LOOP.slice(0, start),

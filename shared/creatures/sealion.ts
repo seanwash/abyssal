@@ -38,8 +38,7 @@ interface SeaLion extends Creature {
   buzzed: boolean;
 }
 
-export const isSeaLion = (c: Creature): c is SeaLion =>
-  "pass" in c && "passFor" in c;
+export const isSeaLion = (c: Creature): c is SeaLion => c.kind === "sealion";
 
 const size = { r: 0.5, h: 0.35 };
 
