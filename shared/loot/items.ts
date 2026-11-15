@@ -72,6 +72,30 @@ const items = {
     category: "sample",
     note: "Rust-coloured water from the floor of the Hollow. These diatoms can make domoic acid.",
   },
+  "nitrate-barren": {
+    latin: "Nitrate, 4 µmol/L",
+    common: "Water sample, Urchin Barren",
+    category: "sample",
+    note: "Ordinary water for the season. Whatever is wrong with the bay, it isn't coming off the barren.",
+  },
+  "nitrate-anchovy-1": {
+    latin: "Nitrate, 12 µmol/L",
+    common: "Water sample, first anchovy drift",
+    category: "sample",
+    note: "Taken under the first drift of dead anchovies, where the line leaves the kelp. A little high.",
+  },
+  "nitrate-anchovy-2": {
+    latin: "Nitrate, 21 µmol/L",
+    common: "Water sample, second anchovy drift",
+    category: "sample",
+    note: "Higher again, farther out along the line, and the water no colder. Upwelling alone does not do that.",
+  },
+  "nitrate-anchovy-3": {
+    latin: "Nitrate, 34 µmol/L",
+    common: "Water sample, third anchovy drift",
+    category: "sample",
+    note: "The highest yet, at the last drift before the dark. The readings climb toward Moss Landing.",
+  },
   "lingcod-swab": {
     latin: "Ophiodon elongatus, mucus",
     common: "Swab from the calmed lingcod",

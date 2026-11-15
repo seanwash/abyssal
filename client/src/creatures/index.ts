@@ -6,11 +6,13 @@ import type { CreatureSpawn } from "../../../shared/level";
 import type { Effects } from "../fight";
 import type { CreatureSnapshot, DiverSnapshot } from "../net";
 import type { Loudness } from "../sound";
+import { AnchoviesView } from "./anchovies";
 import { CabezonView } from "./cabezon";
 import { DroneView } from "./drone";
 import { LingcodView } from "./lingcod";
 import { RockfishView } from "./rockfish";
 import { SeaLionView } from "./sealion";
+import { UrchinsView } from "./urchins";
 
 /** What a view plays an event with: the shared sparks, where the creature is, your diver, and how loud a sound is for you. */
 export interface Stage {
@@ -42,4 +44,6 @@ export const VIEWS: Record<Kind, (spawn: CreatureSpawn) => CreatureView> = {
   cabezon: (s) => new CabezonView(s),
   rockfish: (s) => new RockfishView(s),
   sealion: (s) => new SeaLionView(s),
+  anchovies: (s) => new AnchoviesView(s),
+  urchins: (s) => new UrchinsView(s),
 };

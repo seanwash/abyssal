@@ -1,3 +1,5 @@
+import { anchovies, isDrift } from "./anchovies";
+import type { AnchovyEvent } from "./anchovies";
 import { cabezon, isCabezon } from "./cabezon";
 import { anySpecies } from "./common";
 import type { Species } from "./common";
@@ -7,9 +9,15 @@ import { isSchool, rockfish } from "./rockfish";
 import type { SchoolEvent } from "./rockfish";
 import { isSeaLion, sealion } from "./sealion";
 import type { SeaLionEvent } from "./sealion";
+import { isPatch, urchins } from "./urchins";
+import type { UrchinEvent } from "./urchins";
 
 /** The events species name for themselves, each declared beside its species' rules. */
-export type CreatureEvent = SeaLionEvent | SchoolEvent;
+export type CreatureEvent =
+  | SeaLionEvent
+  | SchoolEvent
+  | AnchovyEvent
+  | UrchinEvent;
 
 const species = {
   lingcod: anySpecies(lingcod, isLingcod),
@@ -17,6 +25,8 @@ const species = {
   cabezon: anySpecies(cabezon, isCabezon),
   rockfish: anySpecies(rockfish, isSchool),
   sealion: anySpecies(sealion, isSeaLion),
+  anchovies: anySpecies(anchovies, isDrift),
+  urchins: anySpecies(urchins, isPatch),
 };
 
 /** A kind of creature: a key of the registry below, which the level's spawns and the client's views are checked against. */

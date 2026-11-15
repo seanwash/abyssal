@@ -45,6 +45,11 @@ const TO_MCABEE = [p(32, 5), p(18, -6), p(4, -16)];
 /** The Anchovy Line's trail, north-east from the corridor into the bay toward Moss Landing. */
 const ANCHOVY = [p(60, 4), p(72, 22), p(86, 38), p(100, 52), p(114, 66)];
 
+/** The drifts of dead anchovies along the line, one water sample under each: the trail's clues. */
+const DRIFTS = ANCHOVY.slice(1, 4);
+/** The urchin patches on the barren, near enough the route and its finds that a diver has to stay off the floor. */
+const URCHINS = [p(-36, 13), p(-24, 14), p(-42, 18), p(-31, 9.5)];
+
 /** Crevices, each a slot whose far end hides something. */
 const CREVICES = {
   breakwater: { at: p(121, 5), len: 4, half: 1.6, depth: 2.4 },
@@ -251,7 +256,9 @@ export const CANNERY_ROW: ZonePlan = {
       name: "The Anchovy Line",
       sub: "Clue trail toward Moss Landing",
       minutes: 2,
-      at: p(90, 44),
+      guide:
+        "Dead anchovies hang in a line out into the bay. Bag a water sample under each drift: the readings are the clue. It's deep out here, so {rise} to the surface for air.",
+      at: p(80, 30),
       r: 30,
       light: { water: 0x10_28_3a, dark: 0.9, reach: 1.05, sun: 0.5 },
     },
@@ -261,6 +268,8 @@ export const CANNERY_ROW: ZonePlan = {
       name: "Urchin Barren",
       sub: "A red herring",
       minutes: 2,
+      guide:
+        "Kelp grazed down to bare rock by purple urchins. Keep a body length off the floor, or {sink} into their spines. Bag a water sample here to set against the Anchovy Line's.",
       at: p(-34, 15),
       r: 17,
       light: { water: 0x2c_4a_48, dark: 0.8, reach: 1.3, sun: 0.9 },
@@ -286,7 +295,7 @@ export const CANNERY_ROW: ZonePlan = {
       light: { water: 0x05_0b_10, dark: 0.95, reach: 0.95, sun: 0.2 },
     },
   ],
-  route: { main: MAIN, branches: [TO_MCABEE, ANCHOVY], clues: [] },
+  route: { main: MAIN, branches: [TO_MCABEE, ANCHOVY], clues: DRIFTS },
   rocks,
   populate: (z) => {
     const drone = [
@@ -337,6 +346,17 @@ export const CANNERY_ROW: ZonePlan = {
         { id: "rockfish-lingcod", kind: "rockfish", at: z.onFloor(48, 3, 3.5) },
         { id: "rockfish-kelp", kind: "rockfish", at: z.onFloor(68, 0, 4) },
         { id: "drone", kind: "drone", at: drone[0], route: drone },
+        // Dead anchovies hang in midwater over each sample on the line.
+        ...DRIFTS.map((d, i): CreatureSpawn => ({
+          id: `anchovies-${i + 1}`,
+          kind: "anchovies",
+          at: z.onFloor(d.u, d.v, 5),
+        })),
+        ...URCHINS.map((u, i): CreatureSpawn => ({
+          id: `urchins-${i + 1}`,
+          kind: "urchins",
+          at: z.onFloor(u.u, u.v),
+        })),
       ],
       loot: [
         // On open sand by the line, so the first find teaches bagging.
@@ -351,14 +371,26 @@ export const CANNERY_ROW: ZonePlan = {
         lie("star-crevice", "sunflower-star", deep(CREVICES.east)),
         lie("star-west", "sunflower-star", deep(CREVICES.west)),
         lie("ammonite", "ammonite", AMMONITE),
+        // Nitrate climbs sample by sample out along the line; the barren's is ordinary water.
+        ...(
+          [
+            "nitrate-anchovy-1",
+            "nitrate-anchovy-2",
+            "nitrate-anchovy-3",
+          ] as const
+        ).map((item, i) =>
+          lie(item, item, p(DRIFTS[i].u + 1, DRIFTS[i].v - 1))
+        ),
         lie("bloom-anchovy", "bloom-sample", p(99, 51)),
+        lie("nitrate-barren", "nitrate-barren", p(-29, 13)),
         lie("urchin-barren", "urchin-test", p(-36, 13)),
         lie("urchin-crevice", "urchin-test", deep(CREVICES.barren)),
       ],
       jellies: [
-        { ...mapPoint(70, 22, -5), scale: 0.7, phase: 0, hero: false },
-        { ...mapPoint(84, 34, -7), scale: 1.25, phase: 3.3, hero: true },
-        { ...mapPoint(104, 50, -6), scale: 0.6, phase: 6.1, hero: false },
+        // Nettles between the drifts, clear of them so they do not outshine the dead fish.
+        { ...mapPoint(64, 16, -4), scale: 0.7, phase: 0, hero: false },
+        { ...mapPoint(78, 31, -6), scale: 1.25, phase: 3.3, hero: true },
+        { ...mapPoint(94, 46, -7), scale: 0.6, phase: 6.1, hero: false },
       ],
     };
   },

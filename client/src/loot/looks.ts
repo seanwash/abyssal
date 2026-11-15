@@ -180,6 +180,11 @@ const LOOKS: Record<ItemKey, (glow: Glow) => THREE.Object3D> = {
   },
   "bloom-sample": (glow) => vial(0xb8_62_2a, glow),
   // Mucus swabs from calmed animals, cloudy in their vials.
+  // Clear water at the barren, greener and murkier along the Anchovy Line as the nitrate climbs.
+  "nitrate-barren": (glow) => vial(0x7a_b4_c4, glow),
+  "nitrate-anchovy-1": (glow) => vial(0x6e_b0_96, glow),
+  "nitrate-anchovy-2": (glow) => vial(0x82_ac_5c, glow),
+  "nitrate-anchovy-3": (glow) => vial(0x9c_a4_30, glow),
   "lingcod-swab": (glow) => vial(0xc8_c0_a0, glow),
   "cabezon-swab": (glow) => vial(0xa8_b8_88, glow),
   "sealion-swab": (glow) => vial(0xc8_90_88, glow),
