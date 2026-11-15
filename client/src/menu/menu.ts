@@ -126,7 +126,7 @@ export class Menu {
           this.move(-1, e);
         } else if (presses(e, KEYS.back)) {
           this.move(1, e);
-        } else if (e.code === "Tab") {
+        } else if (presses(e, KEYS.nextRow)) {
           this.move(e.shiftKey ? -1 : 1, e);
         }
         e.stopPropagation();

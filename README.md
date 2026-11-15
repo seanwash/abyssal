@@ -66,7 +66,7 @@ npm run lint           # oxlint with Ultracite's core preset (oxlint.config.ts)
 npm run format:check   # oxfmt with Ultracite's preset (oxfmt.config.ts); npm run format rewrites files in place
 ```
 
-Fix what the linter reports rather than turning its rules off. GitHub Actions runs the same three on every push to main and every pull request (`.github/workflows/check.yml`).
+Besides Ultracite's rules, `lint/keys.js` adds one of the game's own, `abyssal/keys-from-table`: it reports a key name written bold by hand, such as `<b>Space</b>`, and a key event's `code` or `key` compared with a string, since both belong in `client/src/keys.ts`. Fix what the linter reports rather than turning its rules off. GitHub Actions runs the same three on every push to main and every pull request (`.github/workflows/check.yml`).
 
 ## Bots
 

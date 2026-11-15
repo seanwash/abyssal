@@ -25,6 +25,8 @@ export const KEYS = {
   mute: { name: "M", codes: ["KeyM"] },
   numbers: { name: "`", codes: ["Backquote"] },
   menu: { name: "Esc", codes: ["Escape"] },
+  /** Moves between the menu's rows, as Tab moves focus on a web page; with Shift it moves back. */
+  nextRow: { name: "Tab", codes: ["Tab"] },
 } satisfies Record<string, Binding>;
 
 /** The four swim keys, in the order they are read out: W A S D. */
