@@ -11,9 +11,9 @@ export interface CreatureView {
   root: THREE.Object3D;
   /** Everything to add to the scene, including fixed scenery such as the lingcod's eggs. */
   objects: THREE.Object3D[];
-  update(dt: number, t: number, s: CreatureSnapshot): void;
+  update: (dt: number, t: number, s: CreatureSnapshot) => void;
   /** Something just happened to this creature, such as a harpoon hit or being calmed. */
-  react(f: Fx): void;
+  react: (f: Fx) => void;
 }
 
 /** A view for each `kind` in `shared/creatures`. */

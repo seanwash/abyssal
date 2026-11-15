@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { color, float, uniform } from 'three/tsl';
-import { floorHeight, type Level } from '../../../shared/level';
+import { floorHeight } from '../../../shared/level';
+import type { Level } from '../../../shared/level';
 import { mesh, rim, sphere } from '../fight';
 
 /**
@@ -16,20 +17,20 @@ export class StationLine {
     const { x, z } = level.station;
     const floor = floorHeight(x, z);
     const paint = new THREE.MeshStandardNodeMaterial({ roughness: 0.6 });
-    paint.colorNode = color(0xb8452a);
-    paint.emissiveNode = color(0x5a2010).mul(rim(2).mul(0.6));
+    paint.colorNode = color(0xb8_45_2a);
+    paint.emissiveNode = color(0x5a_20_10).mul(rim(2).mul(0.6));
     const cream = new THREE.MeshStandardNodeMaterial({ roughness: 0.6 });
-    cream.colorNode = color(0xe8dcc0);
+    cream.colorNode = color(0xe8_dc_c0);
     const rope = new THREE.MeshStandardNodeMaterial({ roughness: 0.9 });
-    rope.colorNode = color(0xd8c890);
-    rope.emissiveNode = color(0x6a5a30).mul(0.5);
+    rope.colorNode = color(0xd8_c8_90);
+    rope.emissiveNode = color(0x6a_5a_30).mul(0.5);
     const iron = new THREE.MeshStandardNodeMaterial({ roughness: 0.7, metalness: 0.6 });
-    iron.colorNode = color(0x3a3a38);
+    iron.colorNode = color(0x3a_3a_38);
     // The lantern ignores the dark, so divers can find the line from across the reef.
     const glow = new THREE.MeshBasicNodeMaterial({ fog: false });
-    glow.colorNode = color(0xffd890).mul(this.lantern).add(float(0.05));
+    glow.colorNode = color(0xff_d8_90).mul(this.lantern).add(float(0.05));
     const halo = new THREE.MeshBasicNodeMaterial({ fog: false, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
-    halo.colorNode = color(0xffc070).mul(rim(1.2).mul(this.lantern).mul(0.5));
+    halo.colorNode = color(0xff_c0_70).mul(rim(1.2).mul(this.lantern).mul(0.5));
 
     const g = new THREE.Group();
     g.position.set(x, 0, z);
@@ -46,7 +47,7 @@ export class StationLine {
       mesh(sphere, iron, [0, floor + 0.15, 0], [0.22, 0.15, 0.22]),
     );
     // Tags on the line every two metres, so its depth reads in the isometric view.
-    for (let y = -2; y > floor + 0.5; y -= 2) g.add(mesh(new THREE.BoxGeometry(0.12, 0.05, 0.02), cream, [0, y, 0]));
+    for (let y = -2; y > floor + 0.5; y -= 2) {g.add(mesh(new THREE.BoxGeometry(0.12, 0.05, 0.02), cream, [0, y, 0]));}
     this.objects.push(g);
   }
 

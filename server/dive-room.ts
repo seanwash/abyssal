@@ -1,15 +1,21 @@
-import { Room, ServerError, type Client } from '@colyseus/core';
+import { Room, ServerError } from '@colyseus/core';
+import type { Client } from '@colyseus/core';
 import { DT, MAX_DIVERS, TICK_RATE } from '../shared/constants';
-import { AIR_MAX, Arena, type ArenaDiver } from '../shared/arena';
+import { AIR_MAX, Arena } from '../shared/arena';
+import type { ArenaDiver } from '../shared/arena';
 import { SPECIES } from '../shared/creatures';
-import { buildLevel, type Level } from '../shared/level';
+import { buildLevel } from '../shared/level';
+import type { Level } from '../shared/level';
 import { Haul } from '../shared/loot/haul';
 import { stepDiver } from '../shared/physics';
-import { BOT_ID, CLOSE_REPLACED, ERROR_DIVE_FULL, sanitizeInput, swimInput, type DiverInput, type DiverSim, type JoinOptions } from '../shared/protocol';
-import { canClimb, foundSpots, logTrip, newLog, stationReach, type StationLog, type StationMessage } from '../shared/station';
+import { BOT_ID, CLOSE_REPLACED, ERROR_DIVE_FULL, sanitizeInput, swimInput } from '../shared/protocol';
+import type { DiverInput, DiverSim, JoinOptions } from '../shared/protocol';
+import { canClimb, foundSpots, logTrip, newLog, stationReach } from '../shared/station';
+import type { StationLog, StationMessage } from '../shared/station';
 import { buddyInput } from './buddy';
 import { loadLog, writeLog } from './save';
 import { CreatureState, DiveState, DiverState, LootState } from './schema';
+import type { DiveStateType, DiverStateType } from './schema';
 
 interface Seat {
   diver: string;
@@ -32,21 +38,21 @@ interface AwaySeat {
   seat: Seat;
   name: string;
   suit: number;
-  expires: { clear(): void };
+  expires: { clear: () => void };
 }
 
 /** The tab's own id when it sent a usable one, so a reload or a dropped connection finds its seat again. */
-function diverKey(client: Client, options: JoinOptions) {
+const diverKey = (client: Client, options: JoinOptions) => {
   const id = options.diver;
-  return typeof id === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(id) ? id : `session:${client.sessionId}`;
-}
+  return typeof id === 'string' && /^[A-Za-z0-9_-]{8,64}$/u.test(id) ? id : `session:${client.sessionId}`;
+};
 
 export class DiveRoom extends Room {
   // Extra connections let a returning tab in before the server notices its old connection dropped;
   // onAuth enforces MAX_DIVERS. A locked room would make matchmaking open a second room for the party.
   maxClients = MAX_DIVERS * 2;
   autoDispose = false;
-  declare state: DiveState;
+  declare state: DiveStateType;
   private level!: Level;
   private arena!: Arena;
   private haul!: Haul;
@@ -60,12 +66,12 @@ export class DiveRoom extends Room {
     this.state = new DiveState();
     this.level = buildLevel(7);
     this.arena = new Arena(this.level);
-    const party = typeof options.party === 'string' && /^[A-Z0-9]{1,12}$/.test(options.party) ? options.party : '';
+    const party = typeof options.party === 'string' && /^[A-Z0-9]{1,12}$/u.test(options.party) ? options.party : '';
     this.saving = !!party;
     this.log = party ? loadLog(party) : newLog('');
     this.haul = new Haul(this.level, foundSpots(this.log));
     this.arena.reach = () => [...this.haul.reachable(), stationReach(this.level)];
-    for (const l of this.haul.loot) this.state.loot.set(l.id, Object.assign(new LootState(), { item: l.item }));
+    for (const l of this.haul.loot) {this.state.loot.set(l.id, Object.assign(new LootState(), { item: l.item }));}
     this.state.seed = this.level.seed;
     this.state.serverTick = 0;
     for (const c of this.arena.creatures) {
@@ -76,26 +82,27 @@ export class DiveRoom extends Room {
     this.setPatchRate(1000 / TICK_RATE);
     this.setSimulationInterval(() => this.tick(), 1000 / TICK_RATE);
     // The room outlives its last connection while dropped divers may return.
-    this.clock.setInterval(() => { if (!this.clients.length && !this.away.size) this.disconnect(); }, 60_000);
+    this.clock.setInterval(() => { if (!this.clients.length && !this.away.size) {this.disconnect();} }, 60_000);
 
     this.onMessage('input', (client: Client, raw: unknown) => {
       const seat = this.seats.get(client.sessionId);
       const input = sanitizeInput(raw);
-      if (!seat || !input || input.seq <= seat.lastSeq) return;
+      if (!seat || !input || input.seq <= seat.lastSeq) {return;}
       seat.lastSeq = input.seq;
       seat.queue.push(input);
-      if (seat.queue.length > MAX_QUEUE) seat.queue.splice(0, seat.queue.length - MAX_QUEUE);
+      if (seat.queue.length > MAX_QUEUE) {seat.queue.splice(0, seat.queue.length - MAX_QUEUE);}
     });
     this.onMessage('climb', (client: Client) => {
       const seat = this.seats.get(client.sessionId);
-      if (seat && !seat.aboard && !seat.fight.down && canClimb(this.level, seat.sim)) this.climb(client.sessionId);
+      if (seat && !seat.aboard && !seat.fight.down && canClimb(this.level, seat.sim)) {this.climb(client.sessionId, seat);}
     });
     this.onMessage('dive', (client: Client) => {
-      if (this.seats.get(client.sessionId)?.aboard) this.dive(client.sessionId);
+      const seat = this.seats.get(client.sessionId);
+      if (seat?.aboard) {this.dive(client.sessionId, seat);}
     });
     this.onMessage('buddy', () => {
-      if (this.state.divers.has(BOT_ID)) this.removeDiver(BOT_ID);
-      else if (this.state.divers.size < MAX_DIVERS) this.addDiver(BOT_ID, BOT_ID, 'Buddy (bot)');
+      if (this.state.divers.has(BOT_ID)) {this.removeDiver(BOT_ID);}
+      else if (this.state.divers.size < MAX_DIVERS) {this.addDiver(BOT_ID, BOT_ID, 'Buddy (bot)');}
     });
   }
 
@@ -103,23 +110,24 @@ export class DiveRoom extends Room {
     const diver = diverKey(client, options);
     // The bot's seat goes to a person, so it does not count here.
     const others = [...this.seats.values()].filter((s) => s.diver !== diver && s.diver !== BOT_ID).length;
-    if (others >= MAX_DIVERS) throw new ServerError(ERROR_DIVE_FULL, 'This dive already has two divers.');
+    if (others >= MAX_DIVERS) {throw new ServerError(ERROR_DIVE_FULL, 'This dive already has two divers.');}
     return true;
   }
 
   onJoin(client: Client, options: JoinOptions = {}) {
     const diver = diverKey(client, options);
     const held = [...this.seats].find(([, seat]) => seat.diver === diver);
+    const away = this.away.get(diver);
     if (held) {
       const [id, seat] = held;
-      const old = this.state.divers.get(id)!;
+      const old = this.state.divers.get(id);
+      if (!old) {throw new Error(`Seat ${id} has no diver state`);}
       this.seats.delete(id);
       this.arena.removeDiver(id);
       this.state.divers.delete(id);
       this.sit(client.sessionId, seat, old.name, old.suit, 'came back');
       this.clients.get(id)?.leave(CLOSE_REPLACED);
-    } else if (this.away.has(diver)) {
-      const away = this.away.get(diver)!;
+    } else if (away) {
       away.expires.clear();
       this.away.delete(diver);
       this.freeBotSeat();
@@ -127,7 +135,8 @@ export class DiveRoom extends Room {
     } else {
       // A held seat gives way to a new diver once the party would otherwise be full.
       const people = [...this.seats.values()].filter((s) => s.diver !== BOT_ID).length;
-      if (people + this.away.size >= MAX_DIVERS) this.release(this.away.keys().next().value!);
+      const [oldest] = this.away.keys();
+      if (people + this.away.size >= MAX_DIVERS && oldest !== undefined) {this.release(oldest);}
       this.freeBotSeat();
       this.addDiver(client.sessionId, diver, String(options.name ?? '').slice(0, 24));
     }
@@ -139,18 +148,18 @@ export class DiveRoom extends Room {
     const seat = this.seats.get(id);
     const d = this.state.divers.get(id);
     // A connection replaced by its own diver's newer one has already handed its seat over.
-    if (!seat || !d) return;
+    if (!seat || !d) {return;}
     this.seats.delete(id);
     this.arena.removeDiver(id);
     this.state.divers.delete(id);
     const expires = this.clock.setTimeout(() => this.release(seat.diver), AWAY_MS);
     this.away.set(seat.diver, { seat, name: d.name, suit: d.suit, expires });
-    console.log(`[dive ${this.roomId}] ${d.name} dropped; holding the seat for ${AWAY_MS / 60000} min`);
+    console.log(`[dive ${this.roomId}] ${d.name} dropped; holding the seat for ${AWAY_MS / 60_000} min`);
   }
 
   /** A person arriving takes the seat from the bot when the party would otherwise be over two. */
   private freeBotSeat() {
-    if (this.seats.size >= MAX_DIVERS && this.seats.has(BOT_ID)) this.removeDiver(BOT_ID);
+    if (this.seats.size >= MAX_DIVERS && this.seats.has(BOT_ID)) {this.removeDiver(BOT_ID);}
   }
 
   private addDiver(id: string, diver: string, name: string) {
@@ -159,9 +168,10 @@ export class DiveRoom extends Room {
     const spawn = this.level.spawns[suit];
     const sim: DiverSim = { x: spawn.x, y: spawn.y, z: spawn.z, vx: 0, vy: 0, vz: 0, yaw: Math.PI };
     this.arena.addDiver(id, sim, spawn);
-    const fight = this.arena.divers.get(id)!;
+    const fight = this.arena.divers.get(id);
+    if (!fight) {throw new Error(`Diver ${id} is missing from the arena after joining it`);}
     // The bot shoots at a third of a person's rate, so it helps with the drone without winning the fight alone.
-    if (id === BOT_ID) fight.reloadTime = 1.6;
+    if (id === BOT_ID) {fight.reloadTime = 1.6;}
     // People start the evening at the station, with yesterday's finds on the shelf; the bot starts wherever they are.
     const aboard = id === BOT_ID ? [...this.seats.values()].every((s) => s.aboard) : true;
     this.sit(id, { diver, sim, fight, queue: [], lastSeq: 0, aboard }, name || (suit === 0 ? 'Diver I' : 'Diver II'), suit, 'joined');
@@ -172,8 +182,8 @@ export class DiveRoom extends Room {
     seat.queue = [];
     seat.lastSeq = 0;
     seat.fight.id = id;
-    if (seat.aboard) this.arena.removeDiver(id);
-    else this.arena.divers.set(id, seat.fight);
+    if (seat.aboard) {this.arena.removeDiver(id);}
+    else {this.arena.divers.set(id, seat.fight);}
     this.haul.join(seat.fight, name);
     const d = new DiverState();
     d.name = name;
@@ -187,7 +197,7 @@ export class DiveRoom extends Room {
   private removeDiver(id: string) {
     console.log(`[dive ${this.roomId}] ${this.state.divers.get(id)?.name ?? id} left`);
     const seat = this.seats.get(id);
-    if (seat) this.haul.leave(seat.fight);
+    if (seat) {this.haul.leave(seat.fight);}
     this.seats.delete(id);
     this.arena.removeDiver(id);
     this.state.divers.delete(id);
@@ -195,15 +205,14 @@ export class DiveRoom extends Room {
 
   private release(diver: string) {
     const away = this.away.get(diver);
-    if (!away) return;
+    if (!away) {return;}
     away.expires.clear();
     this.away.delete(diver);
     this.haul.leave(away.seat.fight);
   }
 
   /** The diver climbs out at the station: its bag is logged and saved, and it leaves the water. */
-  private climb(id: string) {
-    const seat = this.seats.get(id)!;
+  private climb(id: string, seat: Seat) {
     const name = this.state.divers.get(id)?.name ?? '';
     const bag = this.haul.unload(seat.fight).map((c) => ({ item: c.loot.item, spot: c.loot.id, by: c.by }));
     // An empty bag leaves the log as it was.
@@ -214,13 +223,13 @@ export class DiveRoom extends Room {
     Object.assign(seat.sim, { vx: 0, vy: 0, vz: 0 });
     this.arena.fx.push({ k: 'aboard', id, n: fresh.length });
     const msg: StationMessage = { log: this.log, fresh, by: id };
-    if (fresh.length && !this.saving) msg.error = 'No party code, so this log is not saved.';
+    if (fresh.length && !this.saving) {msg.error = 'No party code, so this log is not saved.';}
     else if (fresh.length) {
       try {
         writeLog(this.log);
         msg.savedAt = Date.now();
-      } catch (err) {
-        msg.error = `Could not save: ${(err as Error).message}`;
+      } catch (error) {
+        msg.error = `Could not save: ${(error as Error).message}`;
         console.error(`[dive ${this.roomId}] ${msg.error}`);
       }
     }
@@ -229,8 +238,7 @@ export class DiveRoom extends Room {
   }
 
   /** The diver goes back in at its spawn below the station, with full air. */
-  private dive(id: string) {
-    const seat = this.seats.get(id)!;
+  private dive(id: string, seat: Seat) {
     const d = this.state.divers.get(id);
     const spawn = this.level.spawns[d?.suit ?? 0];
     seat.aboard = false;
@@ -244,44 +252,65 @@ export class DiveRoom extends Room {
     this.state.serverTick += 1;
     for (const [id, seat] of this.seats) {
       const d = this.state.divers.get(id);
-      if (!d) continue;
-      const a = seat.fight;
-      if (id === BOT_ID) {
-        // The bot climbs out and dives with the person it follows.
-        const lead = [...this.seats.values()].find((s) => s !== seat);
-        if (lead && seat.aboard && !lead.aboard) this.dive(id);
-        else if (lead?.aboard && !seat.aboard && !a.down && canClimb(this.level, seat.sim)) this.climb(id);
-        if (seat.aboard) continue;
-        const input = { seq: d.ack + 1, ...buddyInput(this.arena, a, { leadAboard: !!lead?.aboard, station: this.level.station, loot: this.haul.loot }) };
-        stepDiver(this.level, seat.sim, swimInput(input, a.down), DT);
-        a.act = !!input.act;
-        d.ack = input.seq;
-        continue;
-      }
-      const batch = seat.queue.splice(0, MAX_INPUTS_PER_TICK);
-      for (const input of batch) {
-        // A diver at the station stays put, but its inputs are still acknowledged.
-        if (!seat.aboard) stepDiver(this.level, seat.sim, swimInput(input, a.down), DT);
-        a.act = !seat.aboard && !!input.act;
-        d.ack = input.seq;
-      }
+      if (d && id === BOT_ID) {this.stepBot(id, seat, d);}
+      else if (d) {this.stepPerson(seat, d);}
     }
     this.arena.tick(DT);
     this.haul.tick(this.arena.divers.values(), DT);
+    this.applyFx();
+    this.arena.fx.push(...this.haul.fx);
+    this.haul.fx = [];
+    this.writeState();
+    if (this.arena.fx.length) {
+      this.broadcast('fx', this.arena.fx);
+      this.arena.fx = [];
+    }
+  }
+
+  /** The bot climbs out and dives with the person it follows, and swims by its own input while in the water. */
+  private stepBot(id: string, seat: Seat, d: DiverStateType) {
+    const a = seat.fight;
+    const lead = [...this.seats.values()].find((s) => s !== seat);
+    if (lead && seat.aboard && !lead.aboard) {this.dive(id, seat);}
+    else if (lead?.aboard && !seat.aboard && !a.down && canClimb(this.level, seat.sim)) {this.climb(id, seat);}
+    if (seat.aboard) {return;}
+    const input = { seq: d.ack + 1, ...buddyInput(this.arena, a, { leadAboard: !!lead?.aboard, station: this.level.station, loot: this.haul.loot }) };
+    stepDiver(this.level, seat.sim, swimInput(input, a.down), DT);
+    a.act = !!input.act;
+    d.ack = input.seq;
+  }
+
+  /** A person's queued inputs, a few per tick. */
+  private stepPerson(seat: Seat, d: DiverStateType) {
+    const a = seat.fight;
+    const batch = seat.queue.splice(0, MAX_INPUTS_PER_TICK);
+    for (const input of batch) {
+      // A diver at the station stays put, but its inputs are still acknowledged.
+      if (!seat.aboard) {stepDiver(this.level, seat.sim, swimInput(input, a.down), DT);}
+      a.act = !seat.aboard && !!input.act;
+      d.ack = input.seq;
+    }
+  }
+
+  /** The haul's side of the arena's events: a wipe gives bags back, a reset restocks, and a beaten creature drops its loot. */
+  private applyFx() {
     for (const f of this.arena.fx) {
-      if (f.k === 'wiped') for (const a of this.arena.divers.values()) this.haul.giveBack(a);
-      else if (f.k === 'reset') this.haul.restock();
+      if (f.k === 'wiped') {
+        for (const a of this.arena.divers.values()) {this.haul.giveBack(a);}
+      } else if (f.k === 'reset') {this.haul.restock();}
       else if (f.k === 'calmed' || f.k === 'wrecked') {
         const c = this.arena.creatures.find((x) => x.id === f.id);
         const drops = c && SPECIES[c.kind].drops;
-        if (c && drops) this.haul.drop(drops, { x: c.x, y: c.y, z: c.z });
+        if (c && drops) {this.haul.drop(drops, { x: c.x, y: c.y, z: c.z });}
       }
     }
-    this.arena.fx.push(...this.haul.fx);
-    this.haul.fx = [];
+  }
+
+  /** Copies the simulation into the synced state: divers, loot, creatures, then the phase. */
+  private writeState() {
     for (const [id, seat] of this.seats) {
       const d = this.state.divers.get(id);
-      if (d) this.write(d, seat, d.ack);
+      if (d) {this.write(d, seat, d.ack);}
     }
     for (const l of this.haul.loot) {
       let s = this.state.loot.get(l.id);
@@ -289,27 +318,24 @@ export class DiveRoom extends Room {
       s.x = l.x; s.y = l.y; s.z = l.z; s.state = l.state; s.work = l.work; s.hands = l.hands;
     }
     for (const c of this.arena.creatures) {
-      const s = this.state.creatures.get(c.id)!;
+      const s = this.state.creatures.get(c.id);
+      if (!s) {throw new Error(`Creature ${c.id} has no synced state`);}
       s.x = c.x; s.y = c.y; s.z = c.z; s.yaw = c.yaw; s.pitch = c.pitch;
       s.mode = c.mode; s.meter = c.meter; s.charge = c.charge;
     }
     this.state.phase = this.arena.phase;
     this.state.phaseTime = this.arena.phaseTime;
     this.state.clock = this.arena.clock;
-    if (this.arena.fx.length) {
-      this.broadcast('fx', this.arena.fx);
-      this.arena.fx = [];
-    }
   }
 
-  private write(d: DiverState, seat: Seat, ack: number) {
-    const s = seat.sim, a = seat.fight;
+  private write(d: DiverStateType, seat: Seat, ack: number) {
+    const s = seat.sim; const a = seat.fight;
     d.x = s.x; d.y = s.y; d.z = s.z;
     d.vx = s.vx; d.vy = s.vy; d.vz = s.vz;
     d.yaw = s.yaw; d.ack = ack;
     d.air = a.air; d.down = a.down ? 1 : 0; d.revive = a.revive;
     d.aboard = seat.aboard ? 1 : 0;
     const bag = this.haul.bag(a);
-    if ([...d.bag].join() !== bag.join()) { d.bag.clear(); d.bag.push(...bag); }
+    if ([...d.bag].join(",") !== bag.join(",")) { d.bag.clear(); d.bag.push(...bag); }
   }
 }

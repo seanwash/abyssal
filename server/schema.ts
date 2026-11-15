@@ -1,4 +1,5 @@
-import { schema, t, type SchemaType } from '@colyseus/schema';
+import { schema, t } from '@colyseus/schema';
+import type { SchemaType } from '@colyseus/schema';
 
 export const DiverState = schema({
   name: t.string(),
@@ -19,7 +20,7 @@ export const DiverState = schema({
   /** Item keys in the diver's dive bag. */
   bag: t.array('string'),
 }, 'DiverState');
-export type DiverState = SchemaType<typeof DiverState>;
+export type DiverStateType = SchemaType<typeof DiverState>;
 
 export const CreatureState = schema({
   kind: t.string(),
@@ -32,7 +33,7 @@ export const CreatureState = schema({
   meter: t.float32(),
   charge: t.float32(),
 }, 'CreatureState');
-export type CreatureState = SchemaType<typeof CreatureState>;
+export type CreatureStateType = SchemaType<typeof CreatureState>;
 
 export const LootState = schema({
   item: t.string(),
@@ -43,7 +44,7 @@ export const LootState = schema({
   work: t.float32(),
   hands: t.uint8(),
 }, 'LootState');
-export type LootState = SchemaType<typeof LootState>;
+export type LootStateType = SchemaType<typeof LootState>;
 
 export const DiveState = schema({
   seed: t.uint32(),
@@ -55,4 +56,4 @@ export const DiveState = schema({
   phaseTime: t.float32(),
   clock: t.float32(),
 }, 'DiveState');
-export type DiveState = SchemaType<typeof DiveState>;
+export type DiveStateType = SchemaType<typeof DiveState>;

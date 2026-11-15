@@ -20,24 +20,29 @@ const COMPRESSIBLE = new Set(['.html', '.js', '.css', '.json', '.wasm', '.svg'])
 
 interface Asset { type: string; cache: string; raw: Buffer; br?: Buffer; gz?: Buffer }
 
-function files(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true, recursive: true })
-    .filter((e) => e.isFile())
-    .map((e) => path.join(e.parentPath, e.name));
-}
+const files = (dir: string): string[] => readdirSync(dir, { withFileTypes: true, recursive: true })
+  .filter((e) => e.isFile())
+  .map((e) => path.join(e.parentPath, e.name));
+
+/** The smallest encoding of the asset that the request accepts. */
+const pick = (asset: Asset, accept: string): [Buffer, string | null] => {
+  if (asset.br && /\bbr\b/u.test(accept)) {return [asset.br, 'br'];}
+  if (asset.gz && /\bgzip\b/u.test(accept)) {return [asset.gz, 'gzip'];}
+  return [asset.raw, null];
+};
 
 /**
  * Serves the built client from memory, compressed once at startup. Vite's hashed files under
  * /assets are cached for a year; index.html is revalidated so a deploy reaches open laptops on
  * their next reload. Returns null when there is no build, as under `npm run dev`.
  */
-export function clientMiddleware(dir: string) {
-  if (!existsSync(path.join(dir, 'index.html'))) return null;
+export const clientMiddleware = (dir: string) => {
+  if (!existsSync(path.join(dir, 'index.html'))) {return null;}
   const assets = new Map<string, Asset>();
   for (const file of files(dir)) {
     const ext = path.extname(file);
     const raw = readFileSync(file);
-    const url = '/' + path.relative(dir, file).split(path.sep).join('/');
+    const url = `/${  path.relative(dir, file).split(path.sep).join('/')}`;
     const asset: Asset = {
       type: TYPES[ext] ?? 'application/octet-stream',
       cache: url.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache',
@@ -51,19 +56,17 @@ export function clientMiddleware(dir: string) {
   }
 
   return (req: IncomingMessage, res: ServerResponse, next: () => void) => {
-    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
-    const pathname = new URL(req.url ?? '/', 'http://x').pathname;
+    if (req.method !== 'GET' && req.method !== 'HEAD') {return next();}
+    const {pathname} = new URL(req.url ?? '/', 'http://x');
     const asset = assets.get(pathname === '/' ? '/index.html' : pathname);
-    if (!asset) return next();
+    if (!asset) {return next();}
     const accept = String(req.headers['accept-encoding'] ?? '');
-    const [body, encoding] = asset.br && /\bbr\b/.test(accept) ? [asset.br, 'br']
-      : asset.gz && /\bgzip\b/.test(accept) ? [asset.gz, 'gzip']
-      : [asset.raw, null];
+    const [body, encoding] = pick(asset, accept);
     res.setHeader('Content-Type', asset.type);
     res.setHeader('Cache-Control', asset.cache);
     res.setHeader('Content-Length', body.length);
-    if (asset.br) res.setHeader('Vary', 'Accept-Encoding');
-    if (encoding) res.setHeader('Content-Encoding', encoding);
+    if (asset.br) {res.setHeader('Vary', 'Accept-Encoding');}
+    if (encoding) {res.setHeader('Content-Encoding', encoding);}
     res.end(req.method === 'HEAD' ? undefined : body);
   };
-}
+};

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { newLog, parseLog, type StationLog } from '../shared/station';
+import { newLog, parseLog } from '../shared/station';
+import type { StationLog } from '../shared/station';
 
 /**
  * Each party's station log, one JSON file per party code. On an Amp Box the files live in the
@@ -14,25 +15,25 @@ export const SAVE_DIR = process.env.ABYSSAL_SAVES
 const file = (party: string) => path.join(SAVE_DIR, `${party}.json`);
 
 /** The party's log, or a new one. An unreadable file is set aside rather than overwritten. */
-export function loadLog(party: string): StationLog {
+export const loadLog = (party: string): StationLog => {
   const f = file(party);
-  if (!existsSync(f)) return newLog(party);
+  if (!existsSync(f)) {return newLog(party);}
   try {
-    const log = parseLog(JSON.parse(readFileSync(f, 'utf8')));
-    if (log) return log;
+    const log = parseLog(JSON.parse(readFileSync(f, 'utf-8')));
+    if (log) {return log;}
     throw new Error('not a station log');
-  } catch (err) {
+  } catch (error) {
     const aside = `${f}.unreadable-${Date.now()}`;
     renameSync(f, aside);
-    console.error(`[save] could not read ${f} (${(err as Error).message}); moved it to ${aside} and started a new log`);
+    console.error(`[save] could not read ${f} (${(error as Error).message}); moved it to ${aside} and started a new log`);
     return newLog(party);
   }
-}
+};
 
-export function writeLog(log: StationLog) {
+export const writeLog = (log: StationLog) => {
   mkdirSync(SAVE_DIR, { recursive: true });
   const f = file(log.party);
   const tmp = `${f}.${process.pid}.tmp`;
   writeFileSync(tmp, JSON.stringify(log, null, 1));
   renameSync(tmp, f);
-}
+};

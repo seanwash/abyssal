@@ -133,7 +133,7 @@ checks the party's log and the reef are as they were (`npm run build && npx tsx 
 | `shared/creatures/` | One file per creature's rules (`lingcod.ts`, `drone.ts`), the `Species` interface they share in `common.ts`, and the registry in `index.ts` |
 | `server/buddy.ts` | The bot buddy that fills the second seat |
 | `client/src/creatures/` | One file per creature's look, registered by kind in `index.ts` |
-| `client/src/fight.ts` | Fight effects (harpoon line, sparks, shock, soothing ripples, the calm release), and drawing helpers the creature views share |
+| `client/src/fight.ts` | Fight effects (harpoon line, shock, the calm release), built from `sparks.ts`, `pulses.ts` (soothing ripples and flashes) and the drawing helpers in `fight-kit.ts` that the creature views share |
 | `client/src/sound.ts` | Fight sounds synthesised with Web Audio, so they add nothing to the download |
 | `client/src/nettle.ts` | Procedural *Chrysaora fuscescens*: scalloped bell, oral arms, tentacles, pulse |
 | `client/src/env.ts` | Seafloor with caustics, granite boulders, giant kelp, scatter, light shafts, marine snow |
@@ -151,7 +151,7 @@ To add a find: add it to `shared/loot/items.ts`, give it a look in `client/src/l
 level's `loot` list. A creature that leaves something behind names it in its species' `drops`.
 
 To add a creature: write its rules in `shared/creatures/<kind>.ts` and its look in `client/src/creatures/<kind>.ts`,
-register both by kind, and place it in the level's `creatures` list. The arena, the network and the HUD need no
+register both by kind (the rules through `anySpecies` with a type guard, as `isLingcod` does), and place it in the level's `creatures` list. The arena, the network and the HUD need no
 change.
 
 Rendering uses three.js `WebGPURenderer` with TSL node materials; browsers without WebGPU fall

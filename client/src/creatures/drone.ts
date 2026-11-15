@@ -25,14 +25,14 @@ export class DroneView implements CreatureView {
   constructor() {
     this.root.rotation.order = 'YXZ';
     const brass = new THREE.MeshStandardNodeMaterial({ metalness: 0.85, roughness: 0.38 });
-    brass.colorNode = mix(color(0xb38a3c), color(0x3a3024), this.wreck);
-    brass.emissiveNode = color(0xfff2d8).mul(this.hit.mul(rim(0.8).add(0.6)))
-      .add(color(0x7fe0ff).mul(this.charge.mul(rim(1.5)).mul(2.2)))
-      .add(color(0x5a4420).mul(rim(3).mul(oneMinus(this.wreck)).mul(0.5)));
+    brass.colorNode = mix(color(0xb3_8a_3c), color(0x3a_30_24), this.wreck);
+    brass.emissiveNode = color(0xff_f2_d8).mul(this.hit.mul(rim(0.8).add(0.6)))
+      .add(color(0x7f_e0_ff).mul(this.charge.mul(rim(1.5)).mul(2.2)))
+      .add(color(0x5a_44_20).mul(rim(3).mul(oneMinus(this.wreck)).mul(0.5)));
     const iron = new THREE.MeshStandardNodeMaterial({ metalness: 0.7, roughness: 0.55 });
-    iron.colorNode = color(0x2e2f30);
+    iron.colorNode = color(0x2e_2f_30);
     const lens = new THREE.MeshBasicNodeMaterial({ fog: false });
-    lens.colorNode = color(0xff3a20).mul(this.lens).add(float(0.02));
+    lens.colorNode = color(0xff_3a_20).mul(this.lens).add(float(0.02));
 
     const hull = new THREE.CylinderGeometry(0.26, 0.26, 0.7, 16);
     hull.rotateX(Math.PI / 2);
@@ -71,9 +71,9 @@ export class DroneView implements CreatureView {
     const charging = s.mode === DRONE.charge;
     this.charge.value = charging ? s.charge : this.charge.value * Math.exp(-6 * dt);
     const alert = s.mode === DRONE.hunt || charging;
-    this.lens.value = wrecked ? 0 : alert ? 1.6 + Math.sin(t * 14) * 0.4 : 0.8;
+    if (wrecked) {this.lens.value = 0;} else {this.lens.value = alert ? 1.6 + Math.sin(t * 14) * 0.4 : 0.8;}
     this.spin += dt * (wrecked ? 0 : 30);
-    for (const r of this.rotors) r.rotation.z = this.spin;
+    for (const r of this.rotors) {r.rotation.z = this.spin;}
     this.hit.value *= Math.exp(-12 * dt);
     this.jolt *= Math.exp(-9 * dt);
     const j = (charging ? s.charge * 0.03 : 0) + this.jolt * 0.08;
@@ -82,7 +82,7 @@ export class DroneView implements CreatureView {
   }
 
   react(f: Fx) {
-    if (f.k !== 'harpoon' && f.k !== 'wrecked') return;
+    if (f.k !== 'harpoon' && f.k !== 'wrecked') {return;}
     this.hit.value = f.k === 'wrecked' ? 2.5 : 1.4;
     this.jolt = 1;
   }

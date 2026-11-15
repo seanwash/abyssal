@@ -11,7 +11,7 @@ let muted = false;
 addEventListener('keydown', (e) => {
   if (e.code === 'KeyM' && !e.repeat) {
     muted = !muted;
-    if (ctx) master.gain.value = muted ? 0 : 0.5;
+    if (ctx) {master.gain.value = muted ? 0 : 0.5;}
   }
   if (!ctx) {
     ctx = new AudioContext();
@@ -20,30 +20,28 @@ addEventListener('keydown', (e) => {
     master.connect(ctx.destination);
     noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const d = noise.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    for (let i = 0; i < d.length; i += 1) {d[i] = Math.random() * 2 - 1;}
   }
-  if (ctx.state === 'suspended') void ctx.resume();
+  if (ctx.state === 'suspended') {void ctx.resume();}
 });
 
 export const isMuted = () => muted;
 
-function ready() {
-  return ctx && ctx.state === 'running' && !muted ? ctx : null;
-}
+const ready = () => (ctx && ctx.state === 'running' && !muted ? ctx : null);
 
-function envelope(c: AudioContext, gain: number, at: number, attack: number, dur: number) {
+const envelope = (c: AudioContext, gain: number, at: number, attack: number, dur: number) => {
   const g = c.createGain();
   g.gain.setValueAtTime(0.0001, at);
   g.gain.exponentialRampToValueAtTime(gain, at + attack);
   g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
   g.connect(master);
   return g;
-}
+};
 
 /** A pitched tone that glides from `from` to `to` hertz. */
-function tone(type: OscillatorType, from: number, to: number, dur: number, gain: number, delay = 0, attack = 0.005) {
+const tone = (type: OscillatorType, from: number, to: number, dur: number, gain: number, delay = 0, attack = 0.005) => {
   const c = ready();
-  if (!c) return;
+  if (!c) {return;}
   const at = c.currentTime + delay;
   const o = c.createOscillator();
   o.type = type;
@@ -52,12 +50,12 @@ function tone(type: OscillatorType, from: number, to: number, dur: number, gain:
   o.connect(envelope(c, gain, at, attack, dur));
   o.start(at);
   o.stop(at + dur + 0.05);
-}
+};
 
 /** Filtered noise: low `freq` for thumps and rumbles, high for hiss and crackle. */
-function hiss(filter: BiquadFilterType, freq: number, dur: number, gain: number, delay = 0) {
+const hiss = (filter: BiquadFilterType, freq: number, dur: number, gain: number, delay = 0) => {
   const c = ready();
-  if (!c) return;
+  if (!c) {return;}
   const at = c.currentTime + delay;
   const src = c.createBufferSource();
   src.buffer = noise;
@@ -67,12 +65,10 @@ function hiss(filter: BiquadFilterType, freq: number, dur: number, gain: number,
   src.connect(f).connect(envelope(c, gain, at, 0.004, dur));
   src.start(at, Math.random() * 0.5);
   src.stop(at + dur + 0.05);
-}
+};
 
 /** Gain for a sound `dist` metres from the listening diver: full nearby, silent past about 16 m. */
-export function near(dist: number) {
-  return Math.max(0, Math.min(1, 1.2 - dist / 14));
-}
+export const near = (dist: number) => Math.max(0, Math.min(1, 1.2 - dist / 14));
 
 const PENTATONIC = [0, 2, 4, 7, 9, 12, 14];
 
@@ -98,7 +94,7 @@ export const sound = {
     tone('sine', 392 * 2 ** (step / 12), 392 * 2 ** (step / 12), 0.9, 0.12 * v, 0, 0.04);
   },
   calmed(v = 1) {
-    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone('sine', f, f, 1.6, 0.13 * v, i * 0.09, 0.03));
+    for (const [i, f] of [523.25, 659.25, 783.99, 1046.5].entries()) {tone('sine', f, f, 1.6, 0.13 * v, i * 0.09, 0.03);}
   },
   wrecked(v = 1) {
     tone('sawtooth', 320, 40, 0.8, 0.16 * v);
@@ -115,7 +111,7 @@ export const sound = {
   bagged(v = 1, rare = false) {
     tone('triangle', 660, 990, 0.07, 0.2 * v);
     tone('sine', 1318.5, 1318.5, 0.4, 0.12 * v, 0.06);
-    if (rare) [783.99, 987.77, 1174.66, 1567.98].forEach((f, i) => tone('sine', f, f, 1.4, 0.1 * v, 0.12 + i * 0.07, 0.02));
+    if (rare) {for (const [i, f] of [783.99, 987.77, 1174.66, 1567.98].entries()) {tone('sine', f, f, 1.4, 0.1 * v, 0.12 + i * 0.07, 0.02);}}
   },
   /** Stone grinding while two divers work a fossil loose. */
   scrape(v = 1) {
@@ -126,7 +122,7 @@ export const sound = {
   pried(v = 1) {
     hiss('lowpass', 1400, 0.25, 0.5 * v);
     tone('sine', 120, 55, 0.3, 0.3 * v);
-    [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => tone('sine', f, f, 1.8, 0.1 * v, 0.2 + i * 0.08, 0.02));
+    for (const [i, f] of [523.25, 659.25, 783.99, 1046.5, 1318.5].entries()) {tone('sine', f, f, 1.8, 0.1 * v, 0.2 + i * 0.08, 0.02);}
   },
   /** Something falls from a wreck to the floor. */
   dropped(v = 1) {
@@ -135,7 +131,7 @@ export const sound = {
   },
   /** A bag's unlogged finds are lost. */
   returned() {
-    [523.25, 466.16, 392].forEach((f, i) => tone('sine', f, f, 0.6, 0.14, i * 0.16, 0.02));
+    for (const [i, f] of [523.25, 466.16, 392].entries()) {tone('sine', f, f, 0.6, 0.14, i * 0.16, 0.02);}
   },
   /** Climbing out at the station: a splash and the station's bell. */
   aboard() {

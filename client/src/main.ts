@@ -1,8 +1,10 @@
 import * as THREE from 'three/webgpu';
 import { pass } from 'three/tsl';
 import { DT, SUITS } from '../../shared/constants';
-import { buildLevel, groundHeight, type Level } from '../../shared/level';
+import { buildLevel, groundHeight } from '../../shared/level';
+import type { Level } from '../../shared/level';
 import { pickTarget } from '../../shared/arena';
+import type { Fx, Target } from '../../shared/arena';
 import { lootReach } from '../../shared/loot/haul';
 import { ITEMS } from '../../shared/loot/items';
 import { stationReach } from '../../shared/station';
@@ -19,6 +21,7 @@ import { Hud } from './hud';
 import { applyIsoScene, fitIso, ISO, isoCamera, isoDiverLight, isoOutput, isoPixelRatio } from './iso';
 import { readAct, readSwim } from './input';
 import { Net } from './net';
+import type { CreatureSnapshot, DiverSnapshot, LootSnapshot } from './net';
 import { SeaNettle } from './nettle';
 import { PARTY } from './party';
 import { loader } from './loader';
@@ -33,30 +36,41 @@ const params = new URLSearchParams(location.search);
 /** Frames per second to draw; 0 draws on every display refresh. */
 const FPS_CAP = Number(params.get('fps') ?? 60);
 
-function pixelRatio() {
-  if (params.has('scale')) return Number(params.get('scale'));
+const pixelRatio = () => {
+  if (params.has('scale')) {return Number(params.get('scale'));}
   return isoPixelRatio(Number(params.get('lines') ?? ISO.lines));
-}
+};
 
 /**
  * How walled in a diver is, 0 to 1: the share of eight directions where ground or rock rises to its
  * height within a couple of metres, as down in a crevice. A diver's light dims by it, since close
  * walls all around would catch it as a white glare.
  */
-function enclosure(level: Level, x: number, y: number, z: number) {
+const enclosure = (level: Level, x: number, y: number, z: number) => {
   let k = 0;
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 8; i += 1) {
     const a = (i / 8) * Math.PI * 2;
-    k += Math.max(0, Math.min(1, (groundHeight(level, x + Math.cos(a) * 2.2, z + Math.sin(a) * 2.2, y + 3) - (y + 0.3)) / 1.0));
+    k += Math.max(0, Math.min(1, (groundHeight(level, x + Math.cos(a) * 2.2, z + Math.sin(a) * 2.2, y + 3) - (y + 0.3)) / 1));
   }
   // Slopes and a boulder beside the diver stay at full light; only a slot's walls on most sides dim it.
   const e = Math.max(0, Math.min(1, (k / 8 - 0.3) / 0.5));
   return e * e * (3 - 2 * e);
-}
+};
 
-const yieldToBrowser = () => new Promise((resolve) => setTimeout(resolve));
+const yieldToBrowser = () => {
+  const { promise, resolve } = Promise.withResolvers();
+  setTimeout(resolve, 0);
+  return promise;
+};
 
-function placeCamera(camera: THREE.Camera, target: THREE.Vector3) {
+/** Resolves after two display refreshes, by when the frame drawn in between has been submitted. */
+const twoFrames = () => {
+  const { promise, resolve } = Promise.withResolvers<number>();
+  requestAnimationFrame(() => { requestAnimationFrame(resolve); });
+  return promise;
+};
+
+const placeCamera = (camera: THREE.Camera, target: THREE.Vector3) => {
   const cp = Math.cos(ISO.pitch);
   camera.position.set(
     target.x + Math.sin(ISO.yaw) * cp * ISO.distance,
@@ -64,9 +78,15 @@ function placeCamera(camera: THREE.Camera, target: THREE.Vector3) {
     target.z + Math.cos(ISO.yaw) * cp * ISO.distance,
   );
   camera.lookAt(target);
-}
+};
 
-async function main() {
+/** How loud a sound at a point is for the listening diver: by distance, or full when it has no place. */
+type Loudness = (p?: ArrayLike<number>) => number;
+
+/** What one fx needs from the frame it plays in. */
+interface FxScene { f: Fx; at: ArrayLike<number> | undefined; divers: DiverSnapshot[]; me: DiverSnapshot; loud: Loudness }
+
+const main = async () => {
   const level = buildLevel(7);
   // Joining the party runs while the renderer starts and the reef is built.
   const net = new Net(level);
@@ -79,7 +99,7 @@ async function main() {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.95;
   renderer.domElement.style.imageRendering = 'pixelated';
-  document.body.appendChild(renderer.domElement);
+  document.body.append(renderer.domElement);
   await renderer.init();
 
   loader.step('Growing the kelp', 0.06);
@@ -88,7 +108,7 @@ async function main() {
 
   const camera = isoCamera();
 
-  scene.add(new THREE.HemisphereLight(0x6fb3c4, 0x1a2420, 0.35));
+  scene.add(new THREE.HemisphereLight(0x6f_b3_c4, 0x1a_24_20, 0.35));
   const sun = new THREE.DirectionalLight(PALETTE.sun, 0.9);
   scene.add(sun, sun.target);
 
@@ -103,7 +123,7 @@ async function main() {
 
   // Every creature's view is built up front, so a reef reset never adds materials mid-dive.
   const creatureViews = new Map(level.creatures.map((s) => [s.id, VIEWS[s.kind](s)] as const));
-  for (const v of creatureViews.values()) scene.add(...v.objects);
+  for (const v of creatureViews.values()) {scene.add(...v.objects);}
   const effects = new Effects();
   scene.add(...effects.objects);
   const lootView = new LootView(level);
@@ -113,7 +133,7 @@ async function main() {
   const reach = [stationReach(level)];
 
   const nettles = level.jellies.map((j) => new SeaNettle(j));
-  for (const n of nettles) scene.add(n.group);
+  for (const n of nettles) {scene.add(n.group);}
   const hero = nettles.find((_, i) => level.jellies[i].hero) ?? null;
   const diverLight = isoDiverLight();
   const partnerLight = isoDiverLight();
@@ -150,7 +170,7 @@ async function main() {
   // built the same non-blocking way during frames drawn under the loading plate: the renderer skips
   // an object until its pipeline is ready, so no visible frame waits on the GPU driver.
   // three's types leave out the backend's pipeline hook, which both the WebGPU and WebGL backends have.
-  const backend = renderer.backend as unknown as { createRenderPipeline(object: unknown, promises: Promise<void>[] | null): void };
+  const backend = renderer.backend as unknown as { createRenderPipeline: (object: unknown, promises: Promise<void>[] | null) => void };
   const createPipeline = backend.createRenderPipeline;
   const warming: Promise<void>[] = [];
   backend.createRenderPipeline = (o, p) => createPipeline.call(backend, o, p ?? warming);
@@ -167,9 +187,9 @@ async function main() {
   let actWas = false;
   // A tap of the action key can start and end between two frames, so key presses are caught as they happen.
   let tapped = false;
-  addEventListener('keydown', (e) => { if (!e.repeat && (e.code === 'KeyF' || e.code === 'Enter' || e.code === 'NumpadEnter')) tapped = true; });
+  addEventListener('keydown', (e) => { if (!e.repeat && (e.code === 'KeyF' || e.code === 'Enter' || e.code === 'NumpadEnter')) {tapped = true;} });
 
-  addEventListener('keydown', (e) => { if (e.code === 'KeyB' && !e.repeat) net.toggleBuddy(); });
+  addEventListener('keydown', (e) => { if (e.code === 'KeyB' && !e.repeat) {net.toggleBuddy();} });
 
   addEventListener('resize', () => {
     fitIso(camera);
@@ -177,88 +197,85 @@ async function main() {
     renderer.setSize(innerWidth, innerHeight);
   });
 
-  let last = 0;
-  const frame = (now: number) => {
-    // Skipping refreshes that arrive sooner than 60% of the frame interval halves a 120 Hz display
-    // to 60 fps while 60 and 90 Hz displays still draw every refresh.
-    if (FPS_CAP && now - last < 600 / FPS_CAP) { requestAnimationFrame(frame); return; }
-    last = now;
-    const f0 = performance.now();
-    clock.update();
-    const dt = Math.min(0.1, clock.getDelta());
-    const t = clock.getElapsed();
-    const shared = Date.now() / 1000;
-
+  /** Sim steps for the time since the last frame, at most ten so a stalled tab doesn't fast-forward. */
+  const stepSim = (dt: number) => {
     acc += dt;
     let steps = 0;
     while (acc >= DT && steps < 10) {
       net.step(readSwim(ISO.yaw), readAct());
       acc -= DT;
-      steps++;
+      steps += 1;
     }
-    if (steps === 10) acc = 0;
+    if (steps === 10) {acc = 0;}
     net.decayOffset(dt);
+  };
 
-    const divers = net.snapshot(acc / DT);
-    views.forEach((v, suit) => {
+  const updateDivers = (divers: DiverSnapshot[], dt: number, t: number) => {
+    for (const [suit, v] of views.entries()) {
       const d = divers.find((x) => x.suit === suit);
       v.setPresent(!!d && !d.aboard);
       if (d && !d.aboard) {
         const ahead = groundHeight(level, d.x + Math.sin(d.yaw), d.z + Math.cos(d.yaw), d.y + 1);
         v.update(dt, t, new THREE.Vector3(d.x, d.y, d.z), d.yaw, new THREE.Vector3(d.vx, d.vy, d.vz), groundHeight(level, d.x, d.z, d.y), d.down, ahead);
       }
-    });
+    }
+  };
 
-    const creatures = net.creatureSnapshot();
+  const updateCreatures = (creatures: CreatureSnapshot[], dt: number, t: number) => {
     for (const [id, v] of creatureViews) {
       const c = creatures.find((x) => x.id === id);
       v.root.visible = !!c;
-      if (c) v.update(dt, t, c);
+      if (c) {v.update(dt, t, c);}
     }
-    const loot = net.loot;
-    const here = divers[0];
-    for (const m of net.stationNews.splice(0)) stationScreen.news(m, divers);
-    const loud = (p?: ArrayLike<number>) => (p ? near(Math.hypot(p[0] - here.x, p[1] - here.y, p[2] - here.z)) : 1);
+  };
+
+  const collected = ({ f, me, loud }: FxScene) => {
+    const it = f.item ? ITEMS[f.item] : undefined;
+    const big = f.k === 'pried';
+    if (f.p) {effects.collect(f.p, TINT[it?.category ?? 'specimen'], big);}
+    const v = f.by === me.id ? 1 : loud(f.p) * 0.7;
+    if (big) {sound.pried(v);} else {sound.bagged(v, it?.category === 'fossil' || it?.category === 'evidence');}
+  };
+  /** The effect and sound each kind of fx plays; kinds left out only show in the HUD. */
+  const fxPlayers: Partial<Record<Fx['k'], (s: FxScene) => void>> = {
+    harpoon: ({ f, loud }) => { if (f.p && f.q) { effects.harpoon(f.p, f.q); sound.harpoon(loud(f.q)); } },
+    shock: ({ f, loud }) => { if (f.p) { effects.shock(f.p); sound.shock(loud(f.p)); } },
+    bite: ({ f, divers, loud }) => {
+      const d = divers.find((x) => x.id === f.id);
+      if (d) {views[d.suit]?.hurt(d.local ? 1 : 0.7);}
+      if (f.p) {effects.hurt(f.p);}
+      if (d?.local) { shake = 1; hud.hurt(); }
+      sound.hurt(d?.local ? 1 : loud(f.p) * 0.6);
+    },
+    calmed: ({ at, loud }) => { if (at) { effects.calmed(at); sound.calmed(Math.max(0.5, loud(at))); } },
+    wrecked: ({ at, loud }) => { if (at) { effects.wrecked(at); sound.wrecked(loud(at)); } },
+    down: () => { sound.down(); },
+    revived: () => { sound.revived(); },
+    bagged: collected,
+    pried: collected,
+    dropped: ({ f, loud }) => { if (f.p) { effects.collect(f.p, TINT[ITEMS[f.item ?? '']?.category ?? 'evidence']); sound.dropped(loud(f.p)); } },
+    returned: ({ f, me }) => { if (f.id === me.id) {sound.returned();} },
+    aboard: ({ f, me }) => { if (f.id === me.id) {sound.aboard();} },
+    dived: ({ f, me }) => { if (f.id === me.id) {sound.dived();} },
+  };
+
+  const playFx = (divers: DiverSnapshot[], creatures: CreatureSnapshot[], me: DiverSnapshot, loud: Loudness) => {
     for (const f of net.fx.splice(0)) {
       const c = creatures.find((x) => x.id === f.id);
       const at = c ? [c.x, c.y, c.z] : f.p;
-      if (c) creatureViews.get(c.id)?.react(f);
-      switch (f.k) {
-        case 'harpoon': if (f.p && f.q) { effects.harpoon(f.p, f.q); sound.harpoon(loud(f.q)); } break;
-        case 'shock': if (f.p) { effects.shock(f.p); sound.shock(loud(f.p)); } break;
-        case 'bite': {
-          const d = divers.find((x) => x.id === f.id);
-          if (d) views[d.suit]?.hurt(d.local ? 1 : 0.7);
-          if (f.p) effects.hurt(f.p);
-          if (d?.local) { shake = 1; hud.hurt(); }
-          sound.hurt(d?.local ? 1 : loud(f.p) * 0.6);
-          break;
-        }
-        case 'calmed': if (at) { effects.calmed(at); sound.calmed(Math.max(0.5, loud(at))); } break;
-        case 'wrecked': if (at) { effects.wrecked(at); sound.wrecked(loud(at)); } break;
-        case 'down': sound.down(); break;
-        case 'revived': sound.revived(); break;
-        case 'bagged': case 'pried': {
-          const it = f.item ? ITEMS[f.item] : undefined;
-          const big = f.k === 'pried';
-          if (f.p) effects.collect(f.p, TINT[it?.category ?? 'specimen'], big);
-          const v = f.by === here.id ? 1 : loud(f.p) * 0.7;
-          if (big) sound.pried(v); else sound.bagged(v, it?.category === 'fossil' || it?.category === 'evidence');
-          break;
-        }
-        case 'dropped': if (f.p) { effects.collect(f.p, TINT[ITEMS[f.item ?? '']?.category ?? 'evidence']); sound.dropped(loud(f.p)); } break;
-        case 'returned': if (f.id === here.id) sound.returned(); break;
-        case 'aboard': if (f.id === here.id) sound.aboard(); break;
-        case 'dived': if (f.id === here.id) sound.dived(); break;
-      }
+      if (c) {creatureViews.get(c.id)?.react(f);}
+      fxPlayers[f.k]?.({ f, at, divers, me, loud });
       hud.event(f, divers, creatures);
     }
-    // While a diver calms an animal, it gives off a soft ripple and a chime that climbs as it settles.
+  };
+
+  /** While a diver calms an animal, it gives off a soft ripple and a chime that climbs as it settles. */
+  const soothe = (creatures: CreatureSnapshot[], t: number, loud: Loudness) => {
     for (const c of creatures) {
-      if (SPECIES[c.kind]?.action !== 'calm') continue;
+      if (SPECIES[c.kind]?.action !== 'calm') {continue;}
       let s = soothing.get(c.id);
       if (!s) { s = { meter: c.meter, rising: 0, next: 0 }; soothing.set(c.id, s); }
-      if (c.meter > s.meter + 1e-4) s.rising = t;
+      if (c.meter > s.meter + 1e-4) {s.rising = t;}
       s.meter = c.meter;
       if (t - s.rising < 0.25 && t >= s.next) {
         s.next = t + 0.55;
@@ -266,17 +283,21 @@ async function main() {
         sound.soothe(c.meter, Math.max(0.4, loud([c.x, c.y, c.z])));
       }
     }
-    // Two divers prying a fossil grind it loose: grit and a scrape every few tenths of a second.
+  };
+
+  /** Two divers prying a fossil grind it loose: grit and a scrape every few tenths of a second. */
+  const grind = (loot: LootSnapshot[], t: number, loud: Loudness) => {
     for (const l of loot) {
-      if (!ITEMS[l.item]?.pry || l.hands < 2 || l.work <= 0) continue;
-      if (t < (prying.get(l.id) ?? 0)) continue;
+      if (!ITEMS[l.item]?.pry || l.hands < 2 || l.work <= 0) {continue;}
+      if (t < (prying.get(l.id) ?? 0)) {continue;}
       prying.set(l.id, t + 0.35);
       effects.grit([l.x, l.y + 0.1, l.z]);
       sound.scrape(Math.max(0.4, loud([l.x, l.y, l.z])));
     }
-    effects.update(dt);
+  };
 
-    const me = divers[0];
+  /** Moves the camera after your diver, and the cutaway, lights and sun with it. */
+  const updateCamera = (divers: DiverSnapshot[], me: DiverSnapshot, dt: number) => {
     const partner = divers.find((d) => !d.local && !d.aboard);
     // At the station the camera rests above the line, so the reef shows behind the station's screen.
     const at = me.aboard ? { x: level.station.x, y: -1, z: level.station.z } : me;
@@ -291,27 +312,26 @@ async function main() {
     camera.updateMatrixWorld();
     cutaway.diverView.value.set(at.x, at.y, at.z).applyMatrix4(camera.matrixWorldInverse);
     snow.target.value.copy(camTarget);
-    if (partner) cutaway.partner.value.set(partner.x, partner.y, partner.z);
-    else cutaway.partner.value.set(0, 1e4, 0);
+    if (partner) {cutaway.partner.value.set(partner.x, partner.y, partner.z);}
+    else {cutaway.partner.value.set(0, 1e4, 0);}
     diverLight.position.set(at.x, at.y + 1.6, at.z);
     diverLight.intensity = lightIntensity * (1 - 0.85 * enclosure(level, at.x, at.y, at.z));
     partnerLight.position.copy(cutaway.partner.value).y += 1.6;
     partnerLight.intensity = partner ? lightIntensity * (1 - 0.85 * enclosure(level, partner.x, partner.y, partner.z)) : 0;
     sun.position.set(camTarget.x - 8, 18, camTarget.z + 12);
     sun.target.position.copy(camTarget);
+  };
 
-    for (const n of nettles) n.update(shared);
-    line.update(t);
-
-    pipeline.render();
+  /** Picks what the action key aims at and acts on a press, then draws the labels, station screen and HUD. */
+  const updateAction = (divers: DiverSnapshot[], me: DiverSnapshot, creatures: CreatureSnapshot[], loot: LootSnapshot[], dt: number, t: number) => {
     reach.length = 1;
     reach.push(...lootReach(loot));
     const target = me.down || me.aboard ? null : pickTarget(level, { id: me.id, x: me.x, y: me.y, z: me.z, yaw: me.yaw }, divers, creatures, reach);
     // The action key climbs out at the line on a press, and dives again from the station.
     const act = readAct();
     if (tapped || (act && !actWas)) {
-      if (me.aboard) net.dive();
-      else if (target?.kind === 'climb') net.climb();
+      if (me.aboard) {net.dive();}
+      else if (target?.kind === 'climb') {net.climb();}
     }
     actWas = act;
     tapped = false;
@@ -320,10 +340,50 @@ async function main() {
     stationScreen.update(divers, net.status === 'online');
     hud.update(divers, net.status, camera, hero ? hero.worldPosition : null, innerWidth, innerHeight);
     hud.fight(divers, creatures, loot, level.station, target, act, net, camera, innerWidth, innerHeight);
-    frames++;
+    return target;
+  };
+
+  /** The debug hook bots/record.ts reads. */
+  const publishDebug = (divers: DiverSnapshot[], creatures: CreatureSnapshot[], loot: LootSnapshot[], target: Target | null) => {
+    (window as unknown as { abyssal: unknown }).abyssal = { status: net.status, divers, creatures, loot, target, phase: net.phase, corrections: net.corrections, frames, frameMs, log: net.station?.log ?? null };
+  };
+
+  let last = 0;
+  const frame = (now: number) => {
+    // Skipping refreshes that arrive sooner than 60% of the frame interval halves a 120 Hz display
+    // to 60 fps while 60 and 90 Hz displays still draw every refresh.
+    if (FPS_CAP && now - last < 600 / FPS_CAP) { requestAnimationFrame(frame); return; }
+    last = now;
+    const f0 = performance.now();
+    clock.update();
+    const dt = Math.min(0.1, clock.getDelta());
+    const t = clock.getElapsed();
+    const shared = Date.now() / 1000;
+
+    stepSim(dt);
+    const divers = net.snapshot(acc / DT);
+    updateDivers(divers, dt, t);
+    const creatures = net.creatureSnapshot();
+    updateCreatures(creatures, dt, t);
+    const { loot } = net;
+    const [me] = divers;
+    for (const m of net.stationNews.splice(0)) {stationScreen.news(m, divers);}
+    const loud: Loudness = (p) => (p ? near(Math.hypot(p[0] - me.x, p[1] - me.y, p[2] - me.z)) : 1);
+    playFx(divers, creatures, me, loud);
+    soothe(creatures, t, loud);
+    grind(loot, t, loud);
+    effects.update(dt);
+
+    updateCamera(divers, me, dt);
+    for (const n of nettles) {n.update(shared);}
+    line.update(t);
+
+    pipeline.render();
+    const target = updateAction(divers, me, creatures, loot, dt, t);
+    frames += 1;
     frameMs += (performance.now() - f0 - frameMs) * 0.1;
     hud.stats(net, frameMs);
-    (window as unknown as { abyssal: unknown }).abyssal = { status: net.status, divers, creatures, loot, target, phase: net.phase, corrections: net.corrections, frames, frameMs, log: net.station?.log ?? null };
+    publishDebug(divers, creatures, loot, target);
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
@@ -332,19 +392,24 @@ async function main() {
   // Waits out each batch of pipelines the frames add, until a frame adds none.
   let made = 0;
   let done = 0;
-  for (;;) {
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const warmUp = async (): Promise<void> => {
+    await twoFrames();
     const batch = warming.splice(0);
-    if (!batch.length) break;
+    if (!batch.length) {return;}
     made += batch.length;
-    await Promise.all(batch.map((p) => p.then(() => loader.progress(++done / made))));
-  }
+    await Promise.all(batch.map(async (p) => { await p; done += 1; loader.progress(done / made); }));
+    await warmUp();
+  };
+  await warmUp();
   backend.createRenderPipeline = createPipeline;
   loader.finish();
-}
+};
 
-main().catch((err) => {
-  console.error(err);
+try {
+  await main();
+} catch (error) {
+  console.error(error);
   loader.fail();
-  document.body.insertAdjacentHTML('beforeend', `<pre style="color:#ece4ce;padding:24px;font:14px monospace">${String(err?.stack ?? err)}</pre>`);
-});
+  const stack = typeof error === 'object' && error !== null && 'stack' in error ? error.stack : undefined;
+  document.body.insertAdjacentHTML('beforeend', `<pre style="color:#ece4ce;padding:24px;font:14px monospace">${String(stack ?? error)}</pre>`);
+}

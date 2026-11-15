@@ -1,5 +1,6 @@
 import chromium from '@sparticuz/chromium';
-import { chromium as pw, type Page } from 'playwright';
+import { chromium as pw } from 'playwright';
+import type { Page } from 'playwright';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -17,34 +18,47 @@ const QUICK = process.argv.includes('--quick');
 /** Stretches every key hold, for slow software-rendered runs where each frame takes hundreds of ms. */
 const PACE = Number(process.env.PACE ?? 1);
 /** Both browsers join this party so they share a dive. */
-const PARTY = `BOTS${Date.now() % 100000}`;
+const PARTY = `BOTS${Date.now() % 100_000}`;
+
+/** The parts of the client's `window.abyssal` debug snapshot this script reads (see client/src/main.ts). */
+interface AbyssalView {
+  status: string;
+  corrections: number;
+  frames: number;
+  frameMs: number;
+  divers: { name: string; local: boolean; x: number; y: number; z: number }[];
+}
+type AbyssalWindow = Window & { abyssal?: AbyssalView };
 
 const SOFTWARE_GL = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 
-async function launch() {
+const launch = async () => {
   if (process.env.BROWSER === 'sparticuz') {
     return pw.launch({ executablePath: await chromium.executablePath(), args: [...SOFTWARE_GL, '--no-sandbox'], headless: true });
   }
   return pw.launch({ args: ['--ignore-gpu-blocklist', '--enable-unsafe-webgpu'], headless: !process.env.HEADED });
-}
+};
 
-async function hold(page: Page, keys: string[], ms: number) {
-  for (const k of keys) await page.keyboard.down(k);
+const hold = async (page: Page, keys: string[], ms: number) => {
+  await Promise.all(keys.map((k) => page.keyboard.down(k)));
   await page.waitForTimeout(ms * PACE);
-  for (const k of keys) await page.keyboard.up(k);
-}
+  await Promise.all(keys.map((k) => page.keyboard.up(k)));
+};
 
-async function ready(page: Page) {
-  await page.waitForFunction(() => (window as any).abyssal?.status && (window as any).abyssal.status !== 'connecting', null, { timeout: 240_000, polling: 1000 });
-}
+const ready = async (page: Page) => {
+  await page.waitForFunction(() => {
+    const s = (window as AbyssalWindow).abyssal;
+    return s?.status && s.status !== 'connecting';
+  }, null, { timeout: 240_000, polling: 1000 });
+};
 
-async function main() {
+const main = async () => {
   await mkdir(OUT, { recursive: true });
   const browsers = [await launch(), await launch()];
   const mk = async (name: string, i: number) => {
     const ctx = await browsers[i].newContext({ viewport: SIZE, recordVideo: QUICK ? undefined : { dir: OUT, size: SIZE } });
     const page = await ctx.newPage();
-    page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') console.log(`[${name}] ${m.type()}: ${m.text()}`); });
+    page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') {console.log(`[${name}] ${m.type()}: ${m.text()}`);} });
     page.on('pageerror', (e) => console.log(`[${name}] pageerror: ${e.message}`));
     await page.goto(`${URL}?name=${encodeURIComponent(name)}&party=${PARTY}${process.env.QS ?? ''}`);
     return { ctx, page };
@@ -81,14 +95,20 @@ async function main() {
     b.page.screenshot({ path: path.join(OUT, 'b-2-together.png'), timeout: 180_000 }),
   ]);
   const report = await Promise.all([a.page, b.page].map((p) => p.evaluate(() => {
-    const s = (window as any).abyssal;
-    return { status: s.status, corrections: s.corrections, frames: s.frames, frameMs: Math.round(s.frameMs), divers: s.divers.map((d: any) => ({ name: d.name, local: d.local, x: +d.x.toFixed(2), y: +d.y.toFixed(2), z: +d.z.toFixed(2) })) };
+    const s = (window as AbyssalWindow).abyssal;
+    if (!s) {throw new Error('window.abyssal is not set');}
+    return { status: s.status, corrections: s.corrections, frames: s.frames, frameMs: Math.round(s.frameMs), divers: s.divers.map((d) => ({ name: d.name, local: d.local, x: +d.x.toFixed(2), y: +d.y.toFixed(2), z: +d.z.toFixed(2) })) };
   })));
   console.log(JSON.stringify(report, null, 2));
   await a.ctx.close();
   await b.ctx.close();
   await Promise.all(browsers.map((x) => x.close()));
   console.log(`videos and screenshots in ${OUT}`);
-}
+};
 
-main().catch((e) => { console.error(e); process.exit(1); });
+try {
+  await main();
+} catch (error) {
+  console.error(error);
+  process.exit(1);
+}

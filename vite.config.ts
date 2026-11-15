@@ -10,7 +10,7 @@ export default defineConfig({
       '/colyseus': {
         target: `http://127.0.0.1:${SERVER_PORT}`,
         ws: true,
-        rewrite: (path) => path.replace(/^\/colyseus/, ''),
+        rewrite: (path) => path.replace(/^\/colyseus/u, ''),
       },
     },
   },

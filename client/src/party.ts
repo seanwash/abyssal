@@ -1,9 +1,9 @@
 const LETTERS = 'BCDFGHJKLMNPQRSTVWXZ';
 
-function randomCode(length: number, alphabet: string) {
+const randomCode = (length: number, alphabet: string) => {
   const bytes = crypto.getRandomValues(new Uint8Array(length));
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
-}
+};
 
 /**
  * The party this tab dives with, from `?party=`. Without one the tab starts a new party and puts
@@ -11,8 +11,8 @@ function randomCode(length: number, alphabet: string) {
  */
 export const PARTY = (() => {
   const url = new URL(location.href);
-  const given = (url.searchParams.get('party') ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
-  if (given) return given;
+  const given = (url.searchParams.get('party') ?? '').toUpperCase().replaceAll(/[^A-Z0-9]/gu, '').slice(0, 12);
+  if (given) {return given;}
   const code = randomCode(4, LETTERS);
   url.searchParams.set('party', code);
   history.replaceState(null, '', url);

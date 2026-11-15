@@ -8,6 +8,38 @@ import { ease, mesh, rim, sphere } from '../fight';
 import type { CreatureSnapshot } from '../net';
 import type { CreatureView } from '.';
 
+/** The lingcod's egg mass: a mound of pale eggs on the floor of the Hollow. */
+const buildNest = (nest: Point) => {
+  const rnd = mulberry32(17);
+  const n = 140;
+  const mat = new THREE.MeshStandardNodeMaterial({ roughness: 0.4 });
+  mat.colorNode = color(0xa8_9a_82);
+  mat.emissiveNode = color(0x3a_32_28).mul(rim(2));
+  const eggs = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), mat, n);
+  const m = new THREE.Matrix4(); const q = new THREE.Quaternion(); const p = new THREE.Vector3(); const s = new THREE.Vector3();
+  for (let i = 0; i < n; i += 1) {
+    const a = rnd() * Math.PI * 2; const r = Math.sqrt(rnd()) * 0.75;
+    const h = (1 - r / 0.75) * 0.35 * rnd();
+    p.set(nest.x + Math.cos(a) * r, nest.y + 0.04 + h, nest.z + Math.sin(a) * r);
+    s.setScalar(0.06 + rnd() * 0.03);
+    m.compose(p, q, s);
+    eggs.setMatrixAt(i, m);
+  }
+  return eggs;
+};
+
+/** How bright the flare burns: building with the coil, full during the lunge. */
+const flareGoal = (coil: boolean, lunge: boolean, charge: number) => {
+  if (coil) {return charge;}
+  return lunge ? 1 : 0;
+};
+
+/** How wide the jaw opens: widest in the lunge, widening through the coil, nearly shut otherwise. */
+const jawGoal = (coil: boolean, lunge: boolean, charge: number) => {
+  if (lunge) {return 0.6;}
+  return coil ? 0.15 + charge * 0.3 : 0.04;
+};
+
 /**
  * Lingcod (Ophiodon elongatus), built along +z: a long mottled body, a big head and an underslung
  * jaw that opens as it coils and lunges. A sick fish glows violet; calming drains the glow.
@@ -29,14 +61,14 @@ export class LingcodView implements CreatureView {
 
   constructor(spawn: CreatureSpawn) {
     const skin = new THREE.MeshStandardNodeMaterial({ roughness: 0.75 });
-    const mottle = mx_noise_float(positionLocal.mul(7.0)).mul(0.5).add(0.5);
-    skin.colorNode = mix(color(0x5a5a36), color(0xc4ad72), mottle);
-    skin.emissiveNode = color(0x9b5cff).mul(this.sick.mul(rim(2).mul(2.4).add(0.45)))
-      .add(color(0x9fb080).mul(rim(3).mul(0.5)))
-      .add(color(0xffb070).mul(this.flare.mul(rim(1.5)).mul(1.4)))
-      .add(color(0xe8f4ff).mul(this.relief.mul(rim(1.2).mul(1.6).add(0.25))));
+    const mottle = mx_noise_float(positionLocal.mul(7)).mul(0.5).add(0.5);
+    skin.colorNode = mix(color(0x5a_5a_36), color(0xc4_ad_72), mottle);
+    skin.emissiveNode = color(0x9b_5c_ff).mul(this.sick.mul(rim(2).mul(2.4).add(0.45)))
+      .add(color(0x9f_b0_80).mul(rim(3).mul(0.5)))
+      .add(color(0xff_b0_70).mul(this.flare.mul(rim(1.5)).mul(1.4)))
+      .add(color(0xe8_f4_ff).mul(this.relief.mul(rim(1.2).mul(1.6).add(0.25))));
     const eye = new THREE.MeshBasicNodeMaterial();
-    eye.colorNode = mix(color(0xe8d070), color(0xd9a8ff), this.sick);
+    eye.colorNode = mix(color(0xe8_d0_70), color(0xd9_a8_ff), this.sick);
 
     this.body.add(
       mesh(sphere, skin, [0, 0, 0], [0.2, 0.19, 0.62]),
@@ -76,9 +108,9 @@ export class LingcodView implements CreatureView {
     const calm = s.mode === LING.calm;
     const sick = calm ? 0 : 1 - s.meter * 0.7;
     this.sick.value += (sick - this.sick.value) * ease(dt, calm ? 0.8 : 4);
-    const coil = s.mode === LING.coil, lunge = s.mode === LING.lunge;
-    this.flare.value += ((coil ? s.charge : lunge ? 1 : 0) - this.flare.value) * ease(dt, 10);
-    const open = lunge ? 0.6 : coil ? 0.15 + s.charge * 0.3 : 0.04;
+    const coil = s.mode === LING.coil; const lunge = s.mode === LING.lunge;
+    this.flare.value += (flareGoal(coil, lunge, s.charge) - this.flare.value) * ease(dt, 10);
+    const open = jawGoal(coil, lunge, s.charge);
     this.jaw.rotation.x += (open - this.jaw.rotation.x) * ease(dt, 14);
     this.body.scale.z = coil ? 1 - s.charge * 0.12 : 1;
 
@@ -88,28 +120,8 @@ export class LingcodView implements CreatureView {
   }
 
   react(f: Fx) {
-    if (f.k !== 'calmed') return;
+    if (f.k !== 'calmed') {return;}
     this.relief.value = 1.1;
     this.shiver = 1;
   }
-}
-
-/** The lingcod's egg mass: a mound of pale eggs on the floor of the Hollow. */
-function buildNest(nest: Point) {
-  const rnd = mulberry32(17);
-  const n = 140;
-  const mat = new THREE.MeshStandardNodeMaterial({ roughness: 0.4 });
-  mat.colorNode = color(0xa89a82);
-  mat.emissiveNode = color(0x3a3228).mul(rim(2));
-  const eggs = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), mat, n);
-  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3();
-  for (let i = 0; i < n; i++) {
-    const a = rnd() * Math.PI * 2, r = Math.sqrt(rnd()) * 0.75;
-    const h = (1 - r / 0.75) * 0.35 * rnd();
-    p.set(nest.x + Math.cos(a) * r, nest.y + 0.04 + h, nest.z + Math.sin(a) * r);
-    s.setScalar(0.06 + rnd() * 0.03);
-    m.compose(p, q, s);
-    eggs.setMatrixAt(i, m);
-  }
-  return eggs;
 }

@@ -1,5 +1,12 @@
-import { Client, type Room } from '@colyseus/sdk';
+import { Client } from '@colyseus/sdk';
+import type { Room } from '@colyseus/sdk';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { CLOSE_REPLACED, ERROR_DIVE_FULL } from '../shared/protocol';
+
+/** The parts of a diver's synced state this script reads. */
+interface DiverView { name: string; suit: number; x: number; y: number; z: number; ack: number; air: number; aboard: number }
+/** The parts of the dive's synced state this script reads. */
+interface DiveView { divers: { size: number; get: (id: string) => DiverView | undefined; values: () => Iterable<DiverView> } }
 
 /**
  * Checks the dive server alone: party rooms, starting at the field station, input acknowledgement,
@@ -9,16 +16,20 @@ import { CLOSE_REPLACED, ERROR_DIVE_FULL } from '../shared/protocol';
  *   SERVER_URL=ws://127.0.0.1:2567 npx tsx bots/smoke.ts
  */
 const url = process.env.SERVER_URL ?? 'ws://127.0.0.1:2567';
-const party = `SMOKE${Date.now() % 100000}`;
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const party = `SMOKE${Date.now() % 100_000}`;
 let failed = false;
-const check = (ok: boolean, what: string) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`); if (!ok) failed = true; };
+const check = (ok: boolean, what: string) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`); if (!ok) {failed = true;} };
 
 const join = (diver: string, name: string, p = party) => {
   const room = new Client(url).joinOrCreate('dive', { name, party: p, diver });
   return room.then((r) => { r.reconnection.enabled = false; return r; });
 };
-const me = (r: Room) => (r.state as any).divers.get(r.sessionId);
+const dive = (r: Room): DiveView => r.state;
+const me = (r: Room) => {
+  const d = dive(r).divers.get(r.sessionId);
+  if (!d) {throw new Error(`diver ${r.sessionId} is not in the dive state`);}
+  return d;
+};
 
 const a = await join('smoke-diver-aaaa', 'Bot A');
 const b = await join('smoke-diver-bbbb', 'Bot B');
@@ -26,7 +37,7 @@ const other = await join('smoke-diver-cccc', 'Bot C', `${party}X`);
 check(a.roomId === b.roomId, 'two divers with one party code share a dive');
 check(other.roomId !== a.roomId, 'another party code gets its own dive');
 
-const third = await join('smoke-diver-dddd', 'Bot D').then(() => 0, (e) => e.code);
+const third = await join('smoke-diver-dddd', 'Bot D').then(() => 0).catch((error) => error.code);
 check(third === ERROR_DIVE_FULL, 'a third diver is turned away from a full party');
 
 // Divers start at the field station and go in from there.
@@ -37,12 +48,15 @@ await sleep(300);
 check(me(a).aboard === 0 && me(b).aboard === 0, 'both divers go in the water');
 
 let seq = 0;
-for (let i = 0; i < 60; i++) {
-  seq++;
+const swim = async (left: number): Promise<void> => {
+  if (left === 0) {return;}
+  seq += 1;
   a.send('input', { seq, x: 1, y: 0, z: 0 });
   b.send('input', { seq, x: 0, y: 0.5, z: -1 });
   await sleep(1000 / 30);
-}
+  await swim(left - 1);
+};
+await swim(60);
 await sleep(300);
 check(me(a).ack === seq && me(b).ack === seq, `server acknowledged every input (ack ${me(a).ack}, ${me(b).ack})`);
 const before = { x: me(a).x, y: me(a).y, z: me(a).z, suit: me(a).suit, air: me(a).air };
@@ -50,7 +64,7 @@ const before = { x: me(a).x, y: me(a).y, z: me(a).z, suit: me(a).suit, air: me(a
 // A dropped connection, like a closed laptop lid, then the same tab coming back.
 await a.leave(false);
 await sleep(300);
-check((b.state as any).divers.size === 1, 'the partner sees the dropped diver leave');
+check(dive(b).divers.size === 1, 'the partner sees the dropped diver leave');
 const back = await join('smoke-diver-aaaa', 'Bot A');
 await sleep(300);
 const d = me(back);
@@ -63,16 +77,17 @@ await sleep(300);
 check(me(back).ack === 1, 'the rejoined tab can restart its input numbering');
 
 // The same tab joining again before the server noticed the old connection drop takes the seat over.
-const replacedCode = new Promise<number>((resolve) => back.onLeave((code) => resolve(code)));
+const replacedCode = Promise.withResolvers<number>();
+back.onLeave((code) => replacedCode.resolve(code));
 const again = await join('smoke-diver-aaaa', 'Bot A');
-check(await Promise.race([replacedCode, sleep(2000).then(() => -1)]) === CLOSE_REPLACED, 'a newer connection for the same diver replaces the old one');
+check(await Promise.race([replacedCode.promise, sleep(2000, -1)]) === CLOSE_REPLACED, 'a newer connection for the same diver replaces the old one');
 await sleep(300);
-check((b.state as any).divers.size === 2, `the party still has two divers (${(b.state as any).divers.size})`);
+check(dive(b).divers.size === 2, `the party still has two divers (${dive(b).divers.size})`);
 
 await Promise.all([again, b, other].map((r) => r.leave()));
 
 // The bot buddy fills an empty second seat and gives it to a person.
-const names = (r: Room) => [...(r.state as any).divers.values()].map((x: any) => x.name).toSorted().join(', ');
+const names = (r: Room) => [...dive(r).divers.values()].map((x) => x.name).toSorted().join(', ');
 const botParty = `${party}B`;
 const solo = await join('smoke-diver-eeee', 'Bot E', botParty);
 solo.send('buddy');

@@ -2,7 +2,7 @@ import { Server } from '@colyseus/core';
 import { WebSocketTransport } from '@colyseus/ws-transport';
 import path from 'node:path';
 import { SERVER_PORT } from '../shared/constants';
-import { DiveRoom } from './DiveRoom';
+import { DiveRoom } from './dive-room';
 import { clientMiddleware } from './static';
 
 const port = Number(process.env.PORT ?? SERVER_PORT);

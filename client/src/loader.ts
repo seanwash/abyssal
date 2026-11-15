@@ -3,15 +3,15 @@
  * dive. Each step of the load fills its share of the gold rule; the shares are roughly what each step
  * takes on a first visit in Chrome on an Apple GPU, so the rule moves at an even pace.
  */
-const root = document.getElementById('loader');
+const root = document.querySelector<HTMLElement>('#loader');
 const caption = root?.querySelector('.loader-step');
 let before = 0.04;
 let share = 0;
 
-function show(p: number) {
+const show = (p: number) => {
   root?.style.setProperty('--p', p.toFixed(3));
   root?.setAttribute('aria-valuenow', String(Math.round(p * 100)));
-}
+};
 
 export const loader = {
   /** Starts a step that fills `of` of the rule, under `text`. */
@@ -19,7 +19,7 @@ export const loader = {
     performance.mark(text);
     before += share;
     share = of;
-    if (caption) caption.textContent = text;
+    if (caption) {caption.textContent = text;}
     show(before);
   },
   /** How far the current step is, 0 to 1. */
