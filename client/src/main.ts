@@ -20,7 +20,13 @@ import { applyIsoScene, fitIso, ISO, isoCamera, isoDiverLight, isoOutput, isoPix
 import { readAct, readSwim } from './input';
 import { Net } from './net';
 import { SeaNettle } from './nettle';
-import './style.css';
+import { PARTY } from './party';
+import { loader } from './loader';
+import css from './style.css?inline';
+
+// The game's styles ship inside the script rather than as a stylesheet, which would hold back the
+// first paint of the loading plate until it downloaded.
+document.head.append(Object.assign(document.createElement('style'), { textContent: css }));
 
 const params = new URLSearchParams(location.search);
 
@@ -62,7 +68,11 @@ function placeCamera(camera: THREE.Camera, target: THREE.Vector3) {
 
 async function main() {
   const level = buildLevel(7);
+  // Joining the party runs while the renderer starts and the reef is built.
+  const net = new Net(level);
+  const joining = net.connect(params.get('name') ?? '');
 
+  loader.step('Trimming the lamps', 0.04);
   const renderer = new THREE.WebGPURenderer({ antialias: false, forceWebGL: params.has('webgl') });
   renderer.setPixelRatio(pixelRatio());
   renderer.setSize(innerWidth, innerHeight);
@@ -72,6 +82,7 @@ async function main() {
   document.body.appendChild(renderer.domElement);
   await renderer.init();
 
+  loader.step('Growing the kelp', 0.06);
   const scene = new THREE.Scene();
   applyIsoScene(scene);
 
@@ -115,10 +126,9 @@ async function main() {
   pipeline.outputNode = isoOutput(sceneColor);
 
   const hud = new Hud();
-  const net = new Net(level);
-  const name = params.get('name') ?? '';
   const stationScreen = new StationScreen(() => net.dive());
-  await net.connect(name);
+  loader.step(`Hailing party ${PARTY}`, 0.06);
+  await joining;
 
   // One view per suit, both always in the scene, so a diver joining or leaving never changes the
   // number of lights. compileAsync spreads shader builds over frames instead of blocking the first render.
@@ -130,7 +140,20 @@ async function main() {
   });
   const camTarget = new THREE.Vector3(net.sim.x, net.sim.y, net.sim.z);
   placeCamera(camera, camTarget);
+  loader.step('Mixing the glow', 0.5);
+  // The pass compiles through the renderer, which reports each finished pipeline to its own progress callback.
+  const compile = renderer.compileAsync.bind(renderer);
+  renderer.compileAsync = (s, c, t) => compile(s, c, t, (e) => loader.progress(e.loaded / e.total));
   await scenePass.compileAsync(renderer);
+  renderer.compileAsync = compile;
+  // The precompile misses the bloom and output passes and a few scene materials. Their pipelines are
+  // built the same non-blocking way during frames drawn under the loading plate: the renderer skips
+  // an object until its pipeline is ready, so no visible frame waits on the GPU driver.
+  // three's types leave out the backend's pipeline hook, which both the WebGPU and WebGL backends have.
+  const backend = renderer.backend as unknown as { createRenderPipeline(object: unknown, promises: Promise<void>[] | null): void };
+  const createPipeline = backend.createRenderPipeline;
+  const warming: Promise<void>[] = [];
+  backend.createRenderPipeline = (o, p) => createPipeline.call(backend, o, p ?? warming);
 
   const clock = new THREE.Timer();
   let acc = 0;
@@ -304,9 +327,24 @@ async function main() {
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
+
+  loader.step('Letting the silt settle', 0.3);
+  // Waits out each batch of pipelines the frames add, until a frame adds none.
+  let made = 0;
+  let done = 0;
+  for (;;) {
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const batch = warming.splice(0);
+    if (!batch.length) break;
+    made += batch.length;
+    await Promise.all(batch.map((p) => p.then(() => loader.progress(++done / made))));
+  }
+  backend.createRenderPipeline = createPipeline;
+  loader.finish();
 }
 
 main().catch((err) => {
   console.error(err);
+  loader.fail();
   document.body.insertAdjacentHTML('beforeend', `<pre style="color:#ece4ce;padding:24px;font:14px monospace">${String(err?.stack ?? err)}</pre>`);
 });
