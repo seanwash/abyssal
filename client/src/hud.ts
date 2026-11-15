@@ -10,6 +10,7 @@ import { PARTY } from './party';
 import { isMuted } from './sound';
 
 const NUMERALS = ['I', 'II', 'III', 'IV'];
+const finds = (n = 0) => `${n} ${n === 1 ? 'find' : 'finds'}`;
 /** Seconds of diving after which the key hints stop filling an empty caption, counted across visits. */
 const KEY_HINT_SECONDS = 90;
 const KEYS_SEEN = 'abyssal.keys-seen';
@@ -176,7 +177,6 @@ export class Hud {
     const who = nameOf(f.id, divers, creatures), by = nameOf(f.by, divers, creatures);
     const item = f.item ? ITEMS[f.item] : undefined;
     const latin = item ? `<i class="cat-${item.category}">${escape(item.latin)}</i>` : '';
-    const finds = (n = 0) => `${n} ${n === 1 ? 'find' : 'finds'}`;
     const line = {
       bagged: `${by} bagged ${latin}`,
       pried: `Pried free together: ${latin}`,
@@ -244,7 +244,7 @@ export class Hud {
     const dist = (c: CreatureSnapshot) => Math.hypot(c.x - me.x, c.y - me.y, c.z - me.z);
     const sick = creatures
       .filter((c) => SPECIES[c.kind]?.action === 'calm' && !SPECIES[c.kind].done(c))
-      .sort((a, b) => dist(a) - dist(b))[0];
+      .toSorted((a, b) => dist(a) - dist(b))[0];
     const tc = target && (target.kind === 'calm' || target.kind === 'harpoon') ? creatures.find((x) => x.id === target.id) : undefined;
     const tl = target && (target.kind === 'bag' || target.kind === 'pry') ? loot.find((x) => x.id === target.id) : undefined;
 

@@ -8,6 +8,8 @@ addEventListener('keydown', (e) => {
 addEventListener('keyup', (e) => held.delete(e.code));
 addEventListener('blur', () => held.clear());
 
+const deadzone = (v: number) => (Math.abs(v) < 0.15 ? 0 : v);
+
 /** Swim direction in world space, relative to a camera looking along yaw `camYaw`. */
 export function readSwim(camYaw: number) {
   let f = 0, r = 0, u = 0;
@@ -20,9 +22,8 @@ export function readSwim(camYaw: number) {
 
   const pad = navigator.getGamepads?.().find((p) => p);
   if (pad) {
-    const dz = (v: number) => (Math.abs(v) < 0.15 ? 0 : v);
-    r += dz(pad.axes[0] ?? 0);
-    f -= dz(pad.axes[1] ?? 0);
+    r += deadzone(pad.axes[0] ?? 0);
+    f -= deadzone(pad.axes[1] ?? 0);
     if (pad.buttons[0]?.pressed || pad.buttons[5]?.pressed) u += 1;
     if (pad.buttons[1]?.pressed || pad.buttons[4]?.pressed) u -= 1;
   }

@@ -72,7 +72,7 @@ check((b.state as any).divers.size === 2, `the party still has two divers (${(b.
 await Promise.all([again, b, other].map((r) => r.leave()));
 
 // The bot buddy fills an empty second seat and gives it to a person.
-const names = (r: Room) => [...(r.state as any).divers.values()].map((x: any) => x.name).sort().join(', ');
+const names = (r: Room) => [...(r.state as any).divers.values()].map((x: any) => x.name).toSorted().join(', ');
 const botParty = `${party}B`;
 const solo = await join('smoke-diver-eeee', 'Bot E', botParty);
 solo.send('buddy');

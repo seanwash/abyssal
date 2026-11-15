@@ -9,6 +9,9 @@
     "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --target=node20 --outfile=build/server.mjs --log-level=warning --banner:js=\"import { createRequire as __abyssalRequire } from 'node:module'; const require = __abyssalRequire(import.meta.url);\"",
     "start": "node build/server.mjs",
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
     "bots": "tsx bots/record.ts"
   },
   "devDependencies": {
@@ -17,9 +20,12 @@
     "@types/three": "^0.187.0",
     "concurrently": "^10.0.7",
     "esbuild": "^0.28.2",
+    "oxfmt": "^0.78.0",
+    "oxlint": "^1.93.0",
     "playwright": "^1.65.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
+    "ultracite": "^8.2.1",
     "vite": "^8.3.8"
   },
   "dependencies": {

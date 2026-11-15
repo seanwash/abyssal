@@ -323,7 +323,7 @@ async function main() {
     frames++;
     frameMs += (performance.now() - f0 - frameMs) * 0.1;
     hud.stats(net, frameMs);
-    (window as unknown as { __abyssal: unknown }).__abyssal = { status: net.status, divers, creatures, loot, target, phase: net.phase, corrections: net.corrections, frames, frameMs, log: net.station?.log ?? null };
+    (window as unknown as { abyssal: unknown }).abyssal = { status: net.status, divers, creatures, loot, target, phase: net.phase, corrections: net.corrections, frames, frameMs, log: net.station?.log ?? null };
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

@@ -10,9 +10,8 @@ step() {
   echo "    done in $((SECONDS - start))s"
 }
 
-node_major="$(node -p 'process.versions.node.split(".")[0]')"
-if (( node_major < 20 )); then
-  echo "Node 20 or newer is required, found $(node -v)" >&2
+if [[ "$(node -p 'const [a, b] = process.versions.node.split(".").map(Number); a > 22 || (a === 22 && b >= 18)')" != true ]]; then
+  echo "Node 22.18 or newer is required, found $(node -v)" >&2
   exit 1
 fi
 

@@ -25,7 +25,7 @@ async function launch() {
   if (process.env.BROWSER === 'sparticuz') {
     return pw.launch({ executablePath: await chromium.executablePath(), args: [...SOFTWARE_GL, '--no-sandbox'], headless: true });
   }
-  return pw.launch({ args: ['--ignore-gpu-blocklist', '--enable-unsafe-webgpu'], headless: process.env.HEADED ? false : true });
+  return pw.launch({ args: ['--ignore-gpu-blocklist', '--enable-unsafe-webgpu'], headless: !process.env.HEADED });
 }
 
 async function hold(page: Page, keys: string[], ms: number) {
@@ -35,7 +35,7 @@ async function hold(page: Page, keys: string[], ms: number) {
 }
 
 async function ready(page: Page) {
-  await page.waitForFunction(() => (window as any).__abyssal?.status && (window as any).__abyssal.status !== 'connecting', null, { timeout: 240_000, polling: 1000 });
+  await page.waitForFunction(() => (window as any).abyssal?.status && (window as any).abyssal.status !== 'connecting', null, { timeout: 240_000, polling: 1000 });
 }
 
 async function main() {
@@ -81,7 +81,7 @@ async function main() {
     b.page.screenshot({ path: path.join(OUT, 'b-2-together.png'), timeout: 180_000 }),
   ]);
   const report = await Promise.all([a.page, b.page].map((p) => p.evaluate(() => {
-    const s = (window as any).__abyssal;
+    const s = (window as any).abyssal;
     return { status: s.status, corrections: s.corrections, frames: s.frames, frameMs: Math.round(s.frameMs), divers: s.divers.map((d: any) => ({ name: d.name, local: d.local, x: +d.x.toFixed(2), y: +d.y.toFixed(2), z: +d.z.toFixed(2) })) };
   })));
   console.log(JSON.stringify(report, null, 2));

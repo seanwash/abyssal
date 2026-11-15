@@ -5,7 +5,7 @@ other move under an authoritative server.
 
 ## Run it
 
-Needs Node 20 or newer.
+Needs Node 22.18 or newer.
 
 ```bash
 npm install
@@ -83,6 +83,18 @@ npm start       # serves both on $PORT (default 2567)
 One process serves the built client and the dive server's websocket on one port, so the game is
 one link. `build/server.mjs` bundles the server's dependencies and needs only `dist/` beside it.
 `.amp/box.yaml` deploys it to an Amp Box with `amp boxes deploy`.
+
+## Check it
+
+Run these before committing:
+
+```bash
+npm run typecheck      # tsc
+npm run lint           # oxlint with Ultracite's core preset (oxlint.config.ts)
+npm run format:check   # oxfmt with Ultracite's preset (oxfmt.config.ts); npm run format rewrites files in place
+```
+
+Fix what the linter reports rather than turning its rules off.
 
 ## Bots
 

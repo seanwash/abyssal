@@ -95,5 +95,5 @@ export function shelf(log: StationLog) {
     for (const b of f.by) e.by.add(b);
   }
   const order = Object.keys(ITEMS);
-  return [...out.values()].sort((a, b) => order.indexOf(a.item) - order.indexOf(b.item));
+  return [...out.values()].toSorted((a, b) => order.indexOf(a.item) - order.indexOf(b.item));
 }
