@@ -1,0 +1,9 @@
+{
+  "targets": {
+    "default": {
+      "on": "seanwash/abyssal-game-box",
+      "name": "abyssal",
+      "branch": "main"
+    }
+  }
+}
