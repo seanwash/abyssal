@@ -60,6 +60,17 @@ const deep = (c: (typeof CREVICES)[keyof typeof CREVICES]) =>
 const CABEZON_NEST = p(88, 6.5);
 const LINGCOD_NEST = p(46, 5);
 
+/** A flat ledge at the waterline on the breakwater's west face, where the sick sea lion lies. */
+const LEDGE = p(128.3, -6);
+/** The healthy sea lions' loop around the breakwater's toe. */
+const SEA_LION_LOOP = [
+  p(116, -20),
+  p(126, -16),
+  p(126, 4),
+  p(116, 8),
+  p(112, -8),
+];
+
 /** Where the ammonite lies in McAbee's rubble. */
 const AMMONITE = p(2, -20);
 
@@ -80,6 +91,7 @@ const LANES = [
 const rocks = (z: Placer) => {
   // The breakwater: riprap from the beach out past its tip, breaking the surface.
   z.wall(p(130, -40), p(133, 14), 2.6);
+  z.rock(LEDGE.u, LEDGE.v, 1.6, 0.35, { y: -0.4 });
   z.field({ at: p(125, -8), ru: 4, rv: 18 }, 22, 0.7, 1.8, { sy: 0.7 });
   z.field({ at: p(118, 10), ru: 6, rv: 5 }, 6, 0.6, 1.4);
 
@@ -193,6 +205,8 @@ export const CANNERY_ROW: ZonePlan = {
       name: "San Carlos Beach",
       sub: "Shore entry",
       minutes: 1,
+      guide:
+        "Swim with {swim}. Above you on the breakwater a sea lion is convulsing: the reason you're here.",
       at: p(112, -22),
       r: 11,
       light: { water: 0x35_60_4f, dark: 0.7, reach: 1.7, sun: 1 },
@@ -203,6 +217,8 @@ export const CANNERY_ROW: ZonePlan = {
       name: "The Breakwater",
       sub: "Sea lions hauled out above",
       minutes: 3,
+      guide:
+        "{rise} to the surface beside the seizing sea lion and hold {act} to calm it. {sink} to the rocks for nudibranchs and the wolf eel's den; {labels} shows what your lamp reaches.",
       at: p(122, 0),
       r: 15,
       light: { water: 0x2f_5a_4c, dark: 0.78, reach: 1.45, sun: 0.9 },
@@ -286,6 +302,25 @@ export const CANNERY_ROW: ZonePlan = {
     return {
       spawns: [mapPoint(110, -21, -2), mapPoint(114, -21, -2)],
       creatures: [
+        // The sick sea lion lies hauled out on the ledge; two healthy ones loop the breakwater's toe.
+        {
+          id: "sealion-sick",
+          kind: "sealion",
+          at: mapPoint(LEDGE.u, LEDGE.v, 0.35),
+        },
+        ...[0, 2].map((start, i) => {
+          const loop = [
+            ...SEA_LION_LOOP.slice(start),
+            ...SEA_LION_LOOP.slice(0, start),
+          ].map((q) => mapPoint(q.u, q.v, -3 - i));
+          return {
+            id: `sealion-${i + 1}`,
+            kind: "sealion",
+            variant: "healthy",
+            at: loop[0],
+            route: loop,
+          };
+        }),
         {
           id: "lingcod",
           kind: "lingcod",
@@ -306,7 +341,10 @@ export const CANNERY_ROW: ZonePlan = {
         // On open sand by the line, so the first find teaches bagging.
         lie("urchin-beach", "urchin-test", p(108, -18)),
         lie("abalone-breakwater", "abalone-shell", p(126, -10)),
-        lie("abalone-den", "abalone-shell", deep(CREVICES.breakwater)),
+        // On the breakwater's rocks, the tutorial's specimens; the wolf eel keeps to its den.
+        lie("nudibranch-breakwater", "opalescent-nudibranch", p(127, -14)),
+        lie("sea-lemon-breakwater", "sea-lemon", p(124.5, 2)),
+        lie("wolf-eel-den", "wolf-eel", deep(CREVICES.breakwater)),
         lie("snail-east", "turban-snail", p(92, -4)),
         lie("snail-west", "turban-snail", p(26, 11)),
         lie("star-crevice", "sunflower-star", deep(CREVICES.east)),

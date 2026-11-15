@@ -49,13 +49,14 @@ interface Cabezon extends Creature {
 export const isCabezon = (c: Creature): c is Cabezon =>
   "alone" in c && "lock" in c && "hit" in c;
 
-const size = { r: 0.4, h: 0.25 };
+/** A flat fish: its belly is about `h` below its centre. */
+const size = { r: 0.4, h: 0.1 };
 
 /** Where it lies beside the nest: on the rock, its belly on the floor. */
 const lair = (c: Cabezon, world: World): Point => {
   const x = c.home.x + 0.7;
   const z = c.home.z + 0.4;
-  return { x, y: floorHeight(world.level, x, z) + size.h + 0.02, z };
+  return { x, y: floorHeight(world.level, x, z) + size.h, z };
 };
 
 type Step = (
@@ -82,7 +83,7 @@ const hidden: Step = (c, world, dt) => {
 
 const guard: Step = (c, world, dt, prey) => {
   const rest = lair(c, world);
-  const goal = { ...rest, y: rest.y + 0.35 };
+  const goal = { ...rest, y: rest.y + 0.2 };
   glide(world.level, c, size, goal, 0.8, 2.5, dt, 0.1);
   if (prey) {
     c.alone = 0;

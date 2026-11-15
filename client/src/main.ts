@@ -25,7 +25,7 @@ import {
   PALETTE,
 } from "./env";
 import { Effects } from "./fight";
-import { Hud } from "./hud";
+import { Hud, SEIZURE_HEARD } from "./hud";
 import { readAct, readSwim } from "./input";
 import {
   applyIsoScene,
@@ -381,6 +381,19 @@ const main = async () => {
       if (at) {
         effects.wrecked(at);
         sound.wrecked(loud(at));
+      }
+    },
+    seizing: ({ at, me }) => {
+      if (at) {
+        effects.seizing(at);
+        const d = Math.hypot(at[0] - me.x, at[1] - me.y, at[2] - me.z);
+        sound.seizing(Math.max(0, 1 - d / SEIZURE_HEARD));
+      }
+    },
+    buzzed: ({ f, me, loud }) => {
+      if (f.p) {
+        effects.buzzed(f.p);
+        sound.buzzed(f.by === me.id ? 1 : loud(f.p) * 0.6);
       }
     },
     scattered: ({ f, loud }) => {

@@ -71,6 +71,8 @@ export interface Species<C extends Creature = Creature> {
   done: (c: CreatureShape) => boolean;
   /** Whether it is hiding, such as a cabezon camouflaged on the rock: the action key and the HUD pass over it. */
   hidden?: (c: CreatureShape) => boolean;
+  /** Whether it is out of the water, such as a sea lion hauled out on the rocks: the arena neither moves nor collides it. */
+  ashore?: (c: CreatureShape) => boolean;
   /** Whether it is hunting a diver right now, which spooks fish nearby. */
   threat?: (c: Creature, world: World) => boolean;
   /** Whether the action key cannot affect it right now, such as a lingcod mid-lunge. */

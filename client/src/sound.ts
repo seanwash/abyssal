@@ -184,6 +184,18 @@ export const sound = {
     }
     tone("sine", 260, 120, 0.25, 0.08 * v);
   },
+  /** A sick sea lion's seizure: ragged, strangled barks. */
+  seizing(v = 1) {
+    for (let i = 0; i < 4; i += 1) {
+      tone("sawtooth", 420 - i * 30, 210, 0.16, 0.12 * v, i * 0.22);
+      hiss("bandpass", 900, 0.12, 0.1 * v, i * 0.22);
+    }
+  },
+  /** A healthy sea lion streaks past: a whoosh of bubbles and one bright bark. */
+  buzzed(v = 1) {
+    hiss("bandpass", 600, 0.45, 0.3 * v);
+    tone("square", 520, 640, 0.12, 0.06 * v, 0.15);
+  },
   /** Something falls from a wreck to the floor. */
   dropped(v = 1) {
     tone("sine", 190, 60, 0.4, 0.3 * v);

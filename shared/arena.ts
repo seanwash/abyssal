@@ -62,7 +62,9 @@ export interface Fx {
     | "returned"
     | "aboard"
     | "dived"
-    | "scattered";
+    | "scattered"
+    | "seizing"
+    | "buzzed";
   id?: string;
   by?: string;
   p?: [number, number, number];
@@ -300,6 +302,9 @@ export class Arena implements World {
     for (const c of this.creatures) {
       const sp = SPECIES[c.kind];
       sp.think(c, this, dt);
+      if (sp.ashore?.(c)) {
+        continue;
+      }
       const from = { x: c.x, z: c.z };
       c.x += c.vx * dt;
       c.y += c.vy * dt;

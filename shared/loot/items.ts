@@ -30,6 +30,24 @@ export const ITEMS: Record<string, Item> = {
     category: "specimen",
     note: "The bare shell of a purple urchin. Whole barrens of them can mow a kelp forest down to rock.",
   },
+  "opalescent-nudibranch": {
+    latin: "Hermissenda opalescens",
+    common: "Opalescent nudibranch",
+    category: "specimen",
+    note: "A sea slug striped in electric blue and orange, grazing hydroids on the breakwater's rocks.",
+  },
+  "sea-lemon": {
+    latin: "Doris montereyensis",
+    common: "Monterey sea lemon",
+    category: "specimen",
+    note: "A yellow nudibranch that feeds on sponges and smells faintly of fruit out of the water.",
+  },
+  "wolf-eel": {
+    latin: "Anarrhichthys ocellatus",
+    common: "Young wolf eel, sketched",
+    category: "specimen",
+    note: "Orange and slender, not yet the grey giant it will be. Sketched for the atlas where it lay in its den, and left there.",
+  },
   "turban-snail": {
     latin: "Tegula pulligo",
     common: "Dusky turban snail",
@@ -65,6 +83,12 @@ export const ITEMS: Record<string, Item> = {
     common: "Swab from the calmed cabezon",
     category: "sample",
     note: "Taken once it settled. Two sick nest guards a few metres apart is no accident.",
+  },
+  "sealion-swab": {
+    latin: "Zalophus californianus, serum",
+    common: "Swab from the seizing sea lion",
+    category: "sample",
+    note: "Seizures, a head weaving side to side, foam at the mouth: textbook domoic acid poisoning, the bloom toxin.",
   },
   "capitola-shells": {
     latin: "Mollusca, Purisima Fm.",

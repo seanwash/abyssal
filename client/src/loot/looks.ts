@@ -4,6 +4,7 @@ import {
   mx_noise_float,
   normalView,
   positionLocal,
+  step,
   uniform,
 } from "three/tsl";
 import * as THREE from "three/webgpu";
@@ -61,6 +62,57 @@ const LOOKS: Record<string, (glow: Glow) => THREE.Object3D> = {
     );
     const g = new THREE.Group();
     g.add(mesh(sphere, m, [0, 0.07, 0], [0.2, 0.12, 0.2]));
+    return g;
+  },
+  // Nudibranchs: a soft body with a fringe of cerata, in their own colours.
+  "opalescent-nudibranch": (glow) => {
+    const body = material(0xd8_e8_f0, glow, 0x80_d0_ff, 0.4);
+    const tips = material(0xff_8a_30, glow, 0xff_c0_60, 0.4);
+    const g = new THREE.Group();
+    g.add(mesh(sphere, body, [0, 0.04, 0], [0.08, 0.04, 0.2]));
+    for (let i = 0; i < 8; i += 1) {
+      const side = i % 2 ? 1 : -1;
+      g.add(
+        mesh(
+          sphere,
+          tips,
+          [side * 0.06, 0.08, -0.12 + Math.floor(i / 2) * 0.07],
+          [0.025, 0.05, 0.025]
+        )
+      );
+    }
+    return g;
+  },
+  "sea-lemon": (glow) => {
+    const m = material(0xe8_c0_30, glow, 0xff_e8_80, 0.6);
+    m.colorNode = mix(
+      color(0xd8_a8_20),
+      color(0x4a_3a_20),
+      step(0.75, mx_noise_float(positionLocal.mul(40)).mul(0.5).add(0.5))
+    );
+    const g = new THREE.Group();
+    g.add(mesh(sphere, m, [0, 0.06, 0], [0.13, 0.06, 0.2]));
+    return g;
+  },
+  // Sketched, not taken: drawn as a small orange eel curled in its den.
+  "wolf-eel": (glow) => {
+    const m = material(0xc8_6a_30, glow, 0xff_b0_70, 0.5);
+    const g = new THREE.Group();
+    for (let i = 0; i < 6; i += 1) {
+      const a = i * 0.9;
+      g.add(
+        mesh(
+          sphere,
+          m,
+          [
+            Math.cos(a) * 0.14 * (1 - i * 0.08),
+            0.05,
+            Math.sin(a) * 0.14 * (1 - i * 0.08),
+          ],
+          [0.06 - i * 0.006, 0.05, 0.06 - i * 0.006]
+        )
+      );
+    }
     return g;
   },
   "turban-snail": (glow) => {
@@ -129,6 +181,7 @@ const LOOKS: Record<string, (glow: Glow) => THREE.Object3D> = {
   // Mucus swabs from calmed animals, cloudy in their vials.
   "lingcod-swab": (glow) => vial(0xc8_c0_a0, glow),
   "cabezon-swab": (glow) => vial(0xa8_b8_88, glow),
+  "sealion-swab": (glow) => vial(0xc8_90_88, glow),
   "capitola-shells": (glow) => {
     const stone = material(0xd2_c2_9a, glow, 0x9e_f0_9e, 0.95);
     stone.colorNode = mix(

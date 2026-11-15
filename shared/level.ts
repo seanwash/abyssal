@@ -47,6 +47,8 @@ export interface CreatureSpawn {
   kind: string;
   at: Point;
   route?: Point[];
+  /** A variant its species knows, such as a healthy sea lion rather than a sick one. */
+  variant?: string;
 }
 /** Where a find lies. `item` names its entry in `shared/loot/items.ts`. */
 export interface LootSpot {
@@ -88,6 +90,8 @@ export interface Area {
   /** Its extent around `at`, in metres. */
   r: number;
   light: WaterLight;
+  /** What to do here, announced with the area's name as a diver swims in. */
+  guide?: string;
 }
 
 /**

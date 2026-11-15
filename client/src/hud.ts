@@ -24,16 +24,35 @@ const finds = (n = 0) => `${n} ${n === 1 ? "find" : "finds"}`;
 const KEY_HINT_SECONDS = 90;
 const KEYS_SEEN = "abyssal.keys-seen";
 const DEV_NUMBERS = "abyssal.dev-numbers";
+/** The key the game binds to each action, as the HUD names it. Zone guides refer to these as `{action}`. */
+const KEY_NAMES: Record<string, string> = {
+  swim: "WASD",
+  sink: "J",
+  rise: "K",
+  act: "Space",
+  labels: "Alt",
+};
 const KEYS = [
-  ["WASD", "swim"],
-  ["J K", "sink, rise"],
-  ["Space", "act"],
+  [KEY_NAMES.swim, "swim"],
+  [`${KEY_NAMES.sink} ${KEY_NAMES.rise}`, "sink, rise"],
+  [KEY_NAMES.act, "act"],
 ]
   .map(
     ([keys, what]) =>
       `<span>${keys.replaceAll(/\S+/gu, "<b>$&</b>")} ${what}</span>`
   )
   .join(" ");
+/** How far off, in metres, a sea lion's seizure is heard and announced: far enough to carry from the beach. */
+export const SEIZURE_HEARD = 40;
+/** Seconds an area's guide fills an empty caption after a diver swims in. */
+const GUIDE_SECONDS = 14;
+
+/** A zone's guide with each `{action}` replaced by the key the game binds to it, so it follows the controls. */
+const withKeys = (text: string) =>
+  text.replaceAll(/\{(?<what>[a-z]+)\}/gu, (all, what: string) => {
+    const key = KEY_NAMES[what];
+    return key ? `<b>${key}</b>` : all;
+  });
 
 const el = <K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -312,6 +331,11 @@ export class Hud {
   private placeTitle: HTMLElement;
   private placeSub: HTMLElement;
   private placeId: string | undefined;
+  /** The current area's guide, and until when it fills an empty caption. */
+  private guide = "";
+  private guideUntil = 0;
+  /** When the top rule last announced a seizure, so repeated bouts do not crowd it. */
+  private seizureNews = -Infinity;
   /** Why this tab is not in the party, from the connection, shown under depth. */
   private notice = "";
   private keysLeft = localStorage.getItem(KEYS_SEEN) ? 0 : KEY_HINT_SECONDS;
@@ -482,6 +506,8 @@ export class Hud {
     }
     const first = this.placeId === undefined;
     this.placeId = area?.id ?? "";
+    this.guide = area?.guide ? withKeys(area.guide) : "";
+    this.guideUntil = performance.now() + GUIDE_SECONDS * 1000;
     this.placeTitle.textContent = area?.name ?? "Monterey Bay";
     this.placeSub.textContent = area
       ? `${area.sub} · beat ${area.beat}`
@@ -491,6 +517,20 @@ export class Hud {
       this.banner.classList.add("show");
       this.bannerUntil = performance.now() + 3200;
     }
+  }
+
+  /** The line for a sea lion's seizure, or none if it is far off or one was announced in the last half minute. */
+  private seizure(f: Fx, divers: DiverSnapshot[]) {
+    const now = performance.now();
+    const me = localDiver(divers);
+    const far =
+      !f.p ||
+      Math.hypot(f.p[0] - me.x, f.p[1] - me.y, f.p[2] - me.z) > SEIZURE_HEARD;
+    if (far || now - this.seizureNews < 30_000) {
+      return "";
+    }
+    this.seizureNews = now;
+    return "A sea lion is seizing on the breakwater.";
   }
 
   /** Frame time, frame rate and ping, on the bottom rule; the backtick key shows or hides them. */
@@ -544,6 +584,11 @@ export class Hud {
       clear: `Reef clear in ${Math.round(f.t ?? 0)} s. It resets shortly.`,
       wiped: "Both divers are down. The dive starts over.",
       reset: "The reef resets: the sick animals and the machines are back.",
+      seizing: f.k === "seizing" ? this.seizure(f, divers) : "",
+      buzzed:
+        f.by === divers.find((d) => d.local)?.id
+          ? "A sea lion buzzes past you, playing."
+          : "",
       // Only a school spooked by a hunter is news; one a diver swam into is just fish.
       scattered: f.by
         ? "Blue rockfish scatter: something is hunting nearby."
@@ -573,6 +618,10 @@ export class Hud {
     const me = localDiver(divers);
     const now = performance.now();
     this.root.classList.toggle("aboard", me.aboard);
+    if (me.aboard) {
+      // The area's guide counts its time from the dive, not from the station screen.
+      this.guideUntil = now + GUIDE_SECONDS * 1000;
+    }
     if (this.bannerUntil && now > this.bannerUntil) {
       this.banner.classList.remove("show");
       this.bannerUntil = 0;
@@ -609,9 +658,17 @@ export class Hud {
     );
 
     this.countKeyHints(me, now);
-    const act = !cap && !line.act && this.keysLeft > 0 ? KEYS : line.act;
+    const act = cap || line.act ? line.act : this.idleLine(me, now);
     this.renderCaption(cap, act, line.alarm, acting && !!target);
     this.renderMeter(downed, target, tc, sick, camera, w, h);
+  }
+
+  /** What the caption says when nothing needs doing: the area's guide while it is fresh, then the key hints. */
+  private idleLine(me: DiverSnapshot, now: number) {
+    if (this.guide && now < this.guideUntil && !me.aboard) {
+      return this.guide;
+    }
+    return this.keysLeft > 0 ? KEYS : "";
   }
 
   private renderBag(me: DiverSnapshot) {
