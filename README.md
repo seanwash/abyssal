@@ -62,7 +62,7 @@ npm run lint           # oxlint with Ultracite's core preset (oxlint.config.ts)
 npm run format:check   # oxfmt with Ultracite's preset (oxfmt.config.ts); npm run format rewrites files in place
 ```
 
-Fix what the linter reports rather than turning its rules off.
+Fix what the linter reports rather than turning its rules off. GitHub Actions runs the same three on every push to main and every pull request (`.github/workflows/check.yml`).
 
 ## Bots
 
