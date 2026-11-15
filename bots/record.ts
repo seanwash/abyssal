@@ -115,7 +115,7 @@ const main = async () => {
 
   await Promise.all([
     hold(a.page, ["KeyW", "KeyA"], 2600),
-    hold(b.page, ["KeyW", "KeyD", "Space"], 2000),
+    hold(b.page, ["KeyW", "KeyD", "KeyK"], 2000),
   ]);
   await Promise.all([
     a.page.screenshot({
@@ -129,7 +129,7 @@ const main = async () => {
   ]);
   await Promise.all([
     hold(a.page, ["KeyD"], 1800),
-    hold(b.page, ["KeyS", "ShiftLeft"], 1800),
+    hold(b.page, ["KeyS", "KeyJ"], 1800),
   ]);
   await Promise.all([
     hold(a.page, ["KeyW"], 1500),

@@ -26,14 +26,13 @@ const KEYS_SEEN = "abyssal.keys-seen";
 const DEV_NUMBERS = "abyssal.dev-numbers";
 const KEYS = [
   ["WASD", "swim"],
-  ["Space", "rise"],
-  ["Shift", "sink"],
-  ["F", "act"],
-  ["Alt", "labels"],
-  ["B", "bot buddy"],
-  ["M", "mute"],
+  ["J K", "sink, rise"],
+  ["Space", "act"],
 ]
-  .map(([k, what]) => `<span><b>${k}</b> ${what}</span>`)
+  .map(
+    ([keys, what]) =>
+      `<span>${keys.replaceAll(/\S+/gu, "<b>$&</b>")} ${what}</span>`
+  )
   .join(" ");
 
 const el = <K extends keyof HTMLElementTagNameMap>(
@@ -131,26 +130,26 @@ const targetAct = (
 ) => {
   const n = me.bag.length;
   if (target.kind === "buddy") {
-    return "Hold <b>F</b> to buddy-breathe";
+    return "Hold <b>Space</b> to buddy-breathe";
   }
   if (target.kind === "calm") {
     return tc && SPECIES[tc.kind].busy(tc)
       ? "Too agitated: wait for it to settle"
-      : "Hold <b>F</b> to calm";
+      : "Hold <b>Space</b> to calm";
   }
   if (target.kind === "harpoon") {
-    return "Press <b>F</b> to harpoon";
+    return "Press <b>Space</b> to harpoon";
   }
   if (target.kind === "climb") {
-    return `Press <b>F</b> to climb out${n ? ` and log ${n} ${n === 1 ? "find" : "finds"}` : ""}`;
+    return `Press <b>Space</b> to climb out${n ? ` and log ${n} ${n === 1 ? "find" : "finds"}` : ""}`;
   }
   if (n >= BAG_SLOTS) {
     return "Bag full: climb out at the station to log it";
   }
   if (target.kind === "pry") {
-    return `Both divers hold <b>F</b> to pry it free <span class="dist">${tl?.hands ?? 0} of 2</span>`;
+    return `Both divers hold <b>Space</b> to pry it free <span class="dist">${tl?.hands ?? 0} of 2</span>`;
   }
-  return "Hold <b>F</b> to bag";
+  return "Hold <b>Space</b> to bag";
 };
 
 /** The caption's action line when nothing is targeted: the most pressing hint, whether it is an alarm, and the creature it names. */
@@ -171,14 +170,14 @@ const hint = (
   if (me.down) {
     return {
       act: partner
-        ? `Out of air. ${escape(partner.name)} can hold <b>F</b> beside you to buddy-breathe.`
+        ? `Out of air. ${escape(partner.name)} can hold <b>Space</b> beside you to buddy-breathe.`
         : "Out of air. Press <b>B</b> for a bot buddy, or wait for the reset.",
       alarm: true,
     };
   }
   if (downed) {
     return {
-      act: `Swim to ${escape(downed.name)} and hold <b>F</b> to buddy-breathe`,
+      act: `Swim to ${escape(downed.name)} and hold <b>Space</b> to buddy-breathe`,
       alarm: true,
     };
   }
@@ -379,7 +378,7 @@ export class Hud {
           button.textContent = "Copy invite link";
         }, 6000);
       }
-      // Space and Enter swim, so keep them from pressing the button again.
+      // Space acts, so keep it from pressing the button again.
       button.blur();
     });
 

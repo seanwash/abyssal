@@ -56,7 +56,7 @@ const partnerLine = (other: DiverSnapshot | undefined, online: boolean) => {
 /**
  * The field station's screen, shown while your diver is out of the water: the finds just logged,
  * the save's stamp, and the shelf of everything the party has logged, with an empty frame for each
- * find still out there. F, Enter or the button dives again.
+ * find still out there. Space or the button dives again.
  */
 export class StationScreen {
   private root = document.createElement("div");
@@ -81,7 +81,7 @@ export class StationScreen {
         <div class="station-foot">
           <span class="station-partner"></span>
           <span class="station-stamp"></span>
-          <button type="button">Dive <b>F</b></button>
+          <button type="button">Dive <b>Space</b></button>
         </div>
       </div>`;
     this.tally = part(this.root, ".station-tally");
@@ -90,7 +90,7 @@ export class StationScreen {
     this.stamp = part(this.root, ".station-stamp");
     this.partner = part(this.root, ".station-partner");
     const button = part(this.root, "button");
-    // Space and Enter swim and act, so keep them from pressing the button again.
+    // Space acts, so keep it from pressing the button again.
     button.addEventListener("click", () => {
       button.blur();
       onDive();

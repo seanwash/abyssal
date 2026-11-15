@@ -257,10 +257,7 @@ const main = async () => {
   // A tap of the action key can start and end between two frames, so key presses are caught as they happen.
   let tapped = false;
   addEventListener("keydown", (e) => {
-    if (
-      !e.repeat &&
-      (e.code === "KeyF" || e.code === "Enter" || e.code === "NumpadEnter")
-    ) {
+    if (!e.repeat && e.code === "Space") {
       tapped = true;
     }
   });

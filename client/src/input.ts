@@ -5,7 +5,7 @@ addEventListener("keydown", (e) => {
     return;
   }
   held.add(e.code);
-  if (e.code === "Space" || e.code === "Enter") {
+  if (e.code === "Space") {
     e.preventDefault();
   }
 });
@@ -31,15 +31,10 @@ const readKeys = () => {
   if (held.has("KeyA") || held.has("ArrowLeft")) {
     r -= 1;
   }
-  if (held.has("Space") || held.has("KeyE")) {
+  if (held.has("KeyK")) {
     u += 1;
   }
-  if (
-    held.has("ShiftLeft") ||
-    held.has("ShiftRight") ||
-    held.has("KeyC") ||
-    held.has("KeyQ")
-  ) {
+  if (held.has("KeyJ")) {
     u -= 1;
   }
   return { f, r, u };
@@ -84,9 +79,9 @@ export const readSwim = (camYaw: number) => {
   return { x, y: Math.max(-1, Math.min(1, u)), z };
 };
 
-/** Whether the action key is held: F or Enter, or a gamepad's X or right trigger. */
+/** Whether the action key is held: Space, or a gamepad's X or right trigger. */
 export const readAct = () => {
-  if (held.has("KeyF") || held.has("Enter") || held.has("NumpadEnter")) {
+  if (held.has("Space")) {
     return true;
   }
   const pad = navigator.getGamepads?.().find(Boolean);
