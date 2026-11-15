@@ -29,6 +29,8 @@ export interface World {
   level: Level;
   /** Seconds since the reef last reset. */
   clock: number;
+  /** The nearest creature within `within` of `from` that is hunting a diver, such as one that spooks a school. */
+  hunting: (from: Point, within: number) => Creature | null;
   alive: () => ArenaDiver[];
   /** The diver nearest `from` that is within `within` of `origin`, optionally only one in clear sight of `from`. */
   nearest: (
@@ -65,8 +67,12 @@ export interface Species<C extends Creature = Creature> {
   /** The item it leaves behind once calmed or wrecked, by its key in `shared/loot/items.ts`. */
   drops?: string;
   spawn: (at: CreatureSpawn) => C;
-  /** Whether it is out of the fight: calmed or wrecked. */
+  /** Whether it is out of the fight: calmed or wrecked, or never in it, like a school of fish. */
   done: (c: CreatureShape) => boolean;
+  /** Whether it is hiding, such as a cabezon camouflaged on the rock: the action key and the HUD pass over it. */
+  hidden?: (c: CreatureShape) => boolean;
+  /** Whether it is hunting a diver right now, which spooks fish nearby. */
+  threat?: (c: Creature, world: World) => boolean;
   /** Whether the action key cannot affect it right now, such as a lingcod mid-lunge. */
   busy: (c: CreatureShape) => boolean;
   /** A diver used the action key on it this tick. */

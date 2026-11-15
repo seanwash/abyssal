@@ -160,6 +160,7 @@ export const drone: Species<Drone> = {
   },
 
   done: (c) => c.mode === DRONE.wrecked,
+  threat: (c) => c.mode === DRONE.hunt || c.mode === DRONE.charge,
   busy: () => false,
 
   acted(c, world, by) {

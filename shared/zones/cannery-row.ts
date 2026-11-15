@@ -54,6 +54,10 @@ const CREVICES = {
 const deep = (c: (typeof CREVICES)[keyof typeof CREVICES]) =>
   p(c.at.u, c.at.v - 0.6);
 
+/** The nests in the Kelp Corridors: the cabezon's in a granite nook off the route, the lingcod's on it. */
+const CABEZON_NEST = p(88, 6.5);
+const LINGCOD_NEST = p(46, 5);
+
 /** Where the ammonite lies in McAbee's rubble. */
 const AMMONITE = p(2, -20);
 
@@ -88,6 +92,9 @@ const rocks = (z: Placer) => {
     z.field(r, r.n, 0.6, 2.2, { avoid: LANES });
   }
   // The lingcod's rocks, sheltering its nest from the north.
+  // The cabezon's nook: granite behind the nest to the north, where he lies on the rock.
+  z.rock(CABEZON_NEST.u - 0.5, CABEZON_NEST.v + 2.4, 1.5, 0.7);
+  z.rock(CABEZON_NEST.u + 2.2, CABEZON_NEST.v + 1.2, 1, 0.75);
   const den = z.rock(47, 8.5, 2.2, 0.65);
   z.onTop(den, 1.2, 0.8, 0.3, -0.2);
   z.rock(44, 9.5, 1.6, 0.7);
@@ -129,6 +136,7 @@ export const CANNERY_ROW: ZonePlan = {
     { at: p(124, -6), ru: 7, rv: 20, h: 1.4, ground: "reef" },
     // Granite reef under the kelp.
     { at: p(98, 6), ru: 9, rv: 6, h: 2, ground: "reef" },
+    { at: CABEZON_NEST, ru: 4, rv: 3.5, h: 0.6, ground: "reef" },
     { at: p(74, -6), ru: 8, rv: 5, h: 1.5, ground: "reef" },
     { at: p(44, 10), ru: 10, rv: 6, h: 2.2, ground: "reef" },
     { at: p(18, -2), ru: 9, rv: 6, h: 1.8, ground: "reef" },
@@ -169,7 +177,8 @@ export const CANNERY_ROW: ZonePlan = {
   lanes: LANES,
   clearings: [
     { ...p(112, -22), r: 5 },
-    { ...p(46, 5), r: 3 },
+    { ...LINGCOD_NEST, r: 3 },
+    { ...CABEZON_NEST, r: 2.5 },
   ],
   stations: [
     { id: "beach", name: "San Carlos Beach", at: p(112, -23) },
@@ -274,7 +283,20 @@ export const CANNERY_ROW: ZonePlan = {
     return {
       spawns: [mapPoint(110, -21, -2), mapPoint(114, -21, -2)],
       creatures: [
-        { id: "lingcod", kind: "lingcod", at: z.onFloor(46, 5) },
+        {
+          id: "lingcod",
+          kind: "lingcod",
+          at: z.onFloor(LINGCOD_NEST.u, LINGCOD_NEST.v),
+        },
+        {
+          id: "cabezon",
+          kind: "cabezon",
+          at: z.onFloor(CABEZON_NEST.u, CABEZON_NEST.v),
+        },
+        // Schools over each nest scatter when its guard starts hunting; a third mills in open kelp.
+        { id: "rockfish-cabezon", kind: "rockfish", at: z.onFloor(89, 5, 3.5) },
+        { id: "rockfish-lingcod", kind: "rockfish", at: z.onFloor(48, 3, 3.5) },
+        { id: "rockfish-kelp", kind: "rockfish", at: z.onFloor(68, 0, 4) },
         { id: "drone", kind: "drone", at: drone[0], route: drone },
       ],
       loot: [

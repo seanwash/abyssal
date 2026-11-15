@@ -173,6 +173,13 @@ export const sound = {
       tone("sine", f, f, 1.8, 0.1 * v, 0.2 + i * 0.08, 0.02);
     }
   },
+  /** A school bolts: a rush of tail beats, quick and scattered. */
+  scattered(v = 1) {
+    for (let i = 0; i < 6; i += 1) {
+      hiss("bandpass", 1400 + i * 260, 0.07, 0.16 * v, i * 0.035);
+    }
+    tone("sine", 260, 120, 0.25, 0.08 * v);
+  },
   /** Something falls from a wreck to the floor. */
   dropped(v = 1) {
     tone("sine", 190, 60, 0.4, 0.3 * v);

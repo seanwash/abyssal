@@ -61,7 +61,8 @@ export interface Fx {
     | "dropped"
     | "returned"
     | "aboard"
-    | "dived";
+    | "dived"
+    | "scattered";
   id?: string;
   by?: string;
   p?: [number, number, number];
@@ -136,7 +137,7 @@ const pickCreature = (
   let best: Pick = { target: null, dist: Infinity };
   for (const c of creatures) {
     const sp = SPECIES[c.kind];
-    if (!sp || sp.done(c)) {
+    if (!sp || sp.done(c) || sp.hidden?.(c)) {
       continue;
     }
     const dx = c.x - me.x;
@@ -333,6 +334,19 @@ export class Arena implements World {
       }
       best = d;
       bestD = dd;
+    }
+    return best;
+  }
+
+  hunting(from: Point, within: number) {
+    let best: Creature | null = null;
+    let bestD = within;
+    for (const c of this.creatures) {
+      const d = dist3(c, from);
+      if (d < bestD && SPECIES[c.kind].threat?.(c, this)) {
+        best = c;
+        bestD = d;
+      }
     }
     return best;
   }

@@ -174,6 +174,7 @@ export const lingcod: Species<Lingcod> = {
   reachAround: 2.2,
   needsSight: false,
   territory: 7.5,
+  drops: "lingcod-swab",
 
   spawn(s) {
     const n = s.at;
@@ -192,6 +193,9 @@ export const lingcod: Species<Lingcod> = {
   },
 
   done: (c) => c.mode === LING.calm,
+
+  threat: (c) =>
+    c.mode === LING.stalk || c.mode === LING.coil || c.mode === LING.lunge,
 
   // A lingcod coiling or lunging is too worked up to calm, so calming happens between lunges.
   busy: (c) => c.mode === LING.coil || c.mode === LING.lunge,

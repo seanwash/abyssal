@@ -3,8 +3,10 @@ import type * as THREE from "three/webgpu";
 import type { Fx } from "../../../shared/arena";
 import type { CreatureSpawn } from "../../../shared/level";
 import type { CreatureSnapshot } from "../net";
+import { CabezonStandIn } from "./cabezon-stand-in";
 import { DroneView } from "./drone";
 import { LingcodView } from "./lingcod";
+import { RockfishStandIn } from "./rockfish-stand-in";
 
 /** How one creature is drawn. It reads only the snapshot the server sends, so its look can change without touching the rules. */
 export interface CreatureView {
@@ -21,4 +23,6 @@ export interface CreatureView {
 export const VIEWS: Record<string, (spawn: CreatureSpawn) => CreatureView> = {
   lingcod: (s) => new LingcodView(s),
   drone: () => new DroneView(),
+  cabezon: (s) => new CabezonStandIn(s),
+  rockfish: () => new RockfishStandIn(),
 };

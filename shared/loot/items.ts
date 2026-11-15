@@ -54,6 +54,18 @@ export const ITEMS: Record<string, Item> = {
     category: "sample",
     note: "Rust-coloured water from the floor of the Hollow. These diatoms can make domoic acid.",
   },
+  "lingcod-swab": {
+    latin: "Ophiodon elongatus, mucus",
+    common: "Swab from the calmed lingcod",
+    category: "sample",
+    note: "Taken once it settled. A lab can test it for domoic acid, the bloom toxin that sends sea lions into seizures.",
+  },
+  "cabezon-swab": {
+    latin: "Scorpaenichthys marmoratus, mucus",
+    common: "Swab from the calmed cabezon",
+    category: "sample",
+    note: "Taken once it settled. Two sick nest guards a few metres apart is no accident.",
+  },
   "capitola-shells": {
     latin: "Mollusca, Purisima Fm.",
     common: "Capitola shells, 3 to 7 million years",

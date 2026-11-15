@@ -114,9 +114,10 @@ const distance = (a: Point, b: Point) =>
 /** The nearest animal or machine that still needs calming, if any. */
 const nearestSick = (creatures: CreatureSnapshot[], me: DiverSnapshot) => {
   const [sick] = creatures
-    .filter(
-      (c) => SPECIES[c.kind]?.action === "calm" && !SPECIES[c.kind].done(c)
-    )
+    .filter((c) => {
+      const sp = SPECIES[c.kind];
+      return sp?.action === "calm" && !sp.done(c) && !sp.hidden?.(c);
+    })
     .toSorted((a, b) => distance(a, me) - distance(b, me));
   return sick;
 };
@@ -537,7 +538,10 @@ export class Hud {
     const line = {
       bagged: `${by} bagged ${latin}`,
       pried: `Pried free together: ${latin}`,
-      dropped: `Something fell from the wreck: ${latin}`,
+      dropped:
+        item?.category === "sample"
+          ? `It lets you take a swab: ${latin}`
+          : `Something fell from the wreck: ${latin}`,
       returned: `${who} lost ${who === "You" ? "your" : "their"} bag's ${finds(f.n)}. They drift back where they were found.`,
       // Your own climb-out shows on the station's screen, and an empty-handed one needs no news.
       aboard:
@@ -551,6 +555,10 @@ export class Hud {
       clear: `Reef clear in ${Math.round(f.t ?? 0)} s. It resets shortly.`,
       wiped: "Both divers are down. The dive starts over.",
       reset: "The reef resets: the sick animals and the machines are back.",
+      // Only a school spooked by a hunter is news; one a diver swam into is just fish.
+      scattered: f.by
+        ? "Blue rockfish scatter: something is hunting nearby."
+        : "",
     }[f.k as string];
     if (!line) {
       return;

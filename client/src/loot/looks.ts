@@ -27,6 +27,30 @@ const material = (base: number, glow: Glow, tint: number, roughness = 0.7) => {
   return m;
 };
 
+/** A sample vial with a brass cap, lying on its side, filled with `contents`. */
+const vial = (contents: number, glow: Glow) => {
+  const glass = new THREE.MeshStandardNodeMaterial({
+    roughness: 0.15,
+    transparent: true,
+    opacity: 0.55,
+    depthWrite: false,
+  });
+  glass.colorNode = color(0xdf_ee_e8);
+  glass.emissiveNode = color(0xbf_e8_ff).mul(rim(1.5).mul(glow.add(0.5)));
+  const water = new THREE.MeshBasicNodeMaterial();
+  water.colorNode = color(contents).mul(glow.mul(0.8).add(0.7));
+  const cap = material(0xb3_8a_3c, glow, 0xff_e0_a0, 0.4);
+  const g = new THREE.Group();
+  const tube = new THREE.CylinderGeometry(0.07, 0.07, 0.34, 12);
+  g.add(
+    mesh(tube, water, [0, 0.13, 0], [0.8, 0.7, 0.8]),
+    mesh(tube, glass, [0, 0.17, 0]),
+    mesh(tube, cap, [0, 0.36, 0], [1.1, 0.15, 1.1])
+  );
+  g.rotation.z = 1.2;
+  return g;
+};
+
 const LOOKS: Record<string, (glow: Glow) => THREE.Object3D> = {
   "urchin-test": (glow) => {
     const m = material(0x7a_4f_80, glow, 0xd8_a8_ff);
@@ -101,28 +125,10 @@ const LOOKS: Record<string, (glow: Glow) => THREE.Object3D> = {
     }
     return g;
   },
-  "bloom-sample": (glow) => {
-    const glass = new THREE.MeshStandardNodeMaterial({
-      roughness: 0.15,
-      transparent: true,
-      opacity: 0.55,
-      depthWrite: false,
-    });
-    glass.colorNode = color(0xdf_ee_e8);
-    glass.emissiveNode = color(0xbf_e8_ff).mul(rim(1.5).mul(glow.add(0.5)));
-    const water = new THREE.MeshBasicNodeMaterial();
-    water.colorNode = color(0xb8_62_2a).mul(glow.mul(0.8).add(0.7));
-    const cap = material(0xb3_8a_3c, glow, 0xff_e0_a0, 0.4);
-    const g = new THREE.Group();
-    const tube = new THREE.CylinderGeometry(0.07, 0.07, 0.34, 12);
-    g.add(
-      mesh(tube, water, [0, 0.13, 0], [0.8, 0.7, 0.8]),
-      mesh(tube, glass, [0, 0.17, 0]),
-      mesh(tube, cap, [0, 0.36, 0], [1.1, 0.15, 1.1])
-    );
-    g.rotation.z = 1.2;
-    return g;
-  },
+  "bloom-sample": (glow) => vial(0xb8_62_2a, glow),
+  // Mucus swabs from calmed animals, cloudy in their vials.
+  "lingcod-swab": (glow) => vial(0xc8_c0_a0, glow),
+  "cabezon-swab": (glow) => vial(0xa8_b8_88, glow),
   "capitola-shells": (glow) => {
     const stone = material(0xd2_c2_9a, glow, 0x9e_f0_9e, 0.95);
     stone.colorNode = mix(

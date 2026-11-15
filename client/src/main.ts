@@ -384,6 +384,12 @@ const main = async () => {
         sound.wrecked(loud(at));
       }
     },
+    scattered: ({ f, loud }) => {
+      if (f.p) {
+        effects.scattered(f.p);
+        sound.scattered(loud(f.p));
+      }
+    },
     down: () => {
       sound.down();
     },

@@ -87,6 +87,11 @@ export class Effects {
     );
   }
 
+  /** A school of fish bolts: a flash of silver flanks out from where it was. */
+  scattered(p: ArrayLike<number>) {
+    this.sparks.burst(p, 26, 0xc8_d8_e8, 3.2, 0, 0.7, 0.03);
+  }
+
   /** Grit off a fossil while divers pry it. */
   grit(p: ArrayLike<number>) {
     this.sparks.burst(p, 4, 0xd8_c8_a0, 1.2, -0.4, 0.6, 0.025);
