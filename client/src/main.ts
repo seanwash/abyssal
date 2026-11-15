@@ -204,7 +204,7 @@ const main = async () => {
   const sceneColor = scenePass.getTextureNode("output");
   pipeline.outputNode = isoOutput(sceneColor);
 
-  const hud = new Hud();
+  const hud = new Hud(() => net.toggleBuddy());
   const chart = new Chart(level);
   const stationScreen = new StationScreen(() => net.dive());
   loader.step(`Hailing party ${PARTY}`, 0.06);

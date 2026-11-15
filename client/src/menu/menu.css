@@ -1,0 +1,154 @@
+/* The station screen's paper and double rule, centred over a lightly dimmed dive. */
+.menu {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(2, 11, 16, 0.2),
+    rgba(2, 11, 16, 0.55)
+  );
+  font-family: "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
+  color: var(--ink);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease-out;
+}
+.menu.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+.menu-plate {
+  width: min(400px, 100%);
+  padding: 20px 24px 14px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  box-shadow:
+    inset 0 0 0 4px var(--paper),
+    inset 0 0 0 5px var(--rule),
+    0 18px 60px rgba(0, 0, 0, 0.6);
+  transform: translateY(6px);
+  transition: transform 0.12s ease-out;
+}
+.menu.show .menu-plate {
+  transform: none;
+}
+.menu-title {
+  font-size: 36px;
+  font-weight: 600;
+  line-height: 1;
+  margin-top: 2px;
+}
+.menu b {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 4px;
+  border: 1px solid var(--rule);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+}
+.menu-list,
+.menu-controls {
+  display: flex;
+  flex-direction: column;
+}
+.menu.controls .menu-list,
+.menu:not(.controls) .menu-controls {
+  display: none;
+}
+.menu button {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 10px 5px 22px;
+  font: inherit;
+  font-size: 19px;
+  text-align: left;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  border-bottom: 1px dotted var(--rule);
+  cursor: pointer;
+  position: relative;
+}
+.menu button:last-child {
+  border-bottom: 0;
+}
+.menu button .l {
+  font-weight: 600;
+}
+.menu button .v {
+  margin-left: auto;
+  font-style: italic;
+  font-size: 16px;
+  color: var(--ink-soft);
+  font-variant-numeric: lining-nums;
+}
+.menu button[data-id="invite"] .v {
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--ink);
+}
+.menu button:focus {
+  outline: none;
+  background: rgba(154, 59, 34, 0.1);
+}
+.menu button:focus::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  transform: translateY(-50%) rotate(45deg);
+}
+.menu button:focus .l {
+  color: var(--accent);
+}
+.menu button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.menu dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 14px;
+  align-items: baseline;
+  margin: 2px 0 10px;
+  font-size: 16px;
+}
+.menu dt {
+  text-align: right;
+  white-space: nowrap;
+}
+.menu dd {
+  margin: 0;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.menu-note {
+  margin-top: 6px;
+  font-size: 15px;
+  font-style: italic;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+.menu-note:empty {
+  display: none;
+}
+.menu-foot {
+  margin-top: 10px;
+  font-size: 14px;
+  font-style: italic;
+  color: var(--ink-soft);
+  text-align: center;
+}

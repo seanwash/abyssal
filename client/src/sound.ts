@@ -8,12 +8,16 @@ let master: GainNode;
 let noise: AudioBuffer;
 let muted = false;
 
+export const toggleMute = () => {
+  muted = !muted;
+  if (ctx) {
+    master.gain.value = muted ? 0 : 0.5;
+  }
+};
+
 addEventListener("keydown", (e) => {
   if (e.code === "KeyM" && !e.repeat) {
-    muted = !muted;
-    if (ctx) {
-      master.gain.value = muted ? 0 : 0.5;
-    }
+    toggleMute();
   }
   if (!ctx) {
     ctx = new AudioContext();

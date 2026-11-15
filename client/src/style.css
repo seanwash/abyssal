@@ -146,40 +146,41 @@ canvas {
   display: none;
 }
 .hud-invite {
-  display: none;
-  margin-top: 10px;
-  font-size: 15px;
-}
-.hud-invite.show {
-  display: block;
-}
-.hud-invite .code {
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-}
-.hud-invite button {
   pointer-events: auto;
-  margin-top: 3px;
-  padding: 1px 9px;
+  margin-top: 6px;
+  padding: 0;
   font: inherit;
+  font-size: 14px;
   font-style: italic;
-  color: var(--paper);
+  color: rgba(236, 228, 206, 0.55);
   text-shadow: inherit;
-  background: rgba(3, 8, 11, 0.45);
-  border: 1px solid var(--gold-dim);
+  background: none;
+  border: 0;
   cursor: pointer;
 }
-.hud-invite button:hover {
-  background: rgba(201, 162, 74, 0.18);
+.hud-invite:hover {
+  color: var(--paper);
 }
-.hud-invite .bot {
+.hud-invite .ask,
+.hud-invite.alone .menu-key {
   display: none;
-  margin-top: 6px;
+}
+.hud-invite.alone {
+  margin-top: 10px;
+  font-size: 17px;
+  color: var(--paper);
+}
+.hud-invite.alone .ask {
+  display: inline;
+}
+.hud-bot {
+  display: none;
+  margin-top: 4px;
+  font-size: 15px;
   font-style: italic;
   color: rgba(236, 228, 206, 0.75);
 }
-.hud-invite .bot.show {
+.hud-bot.show {
   display: block;
 }
 .hud-ledger {
@@ -246,18 +247,6 @@ canvas {
   grid-column: span 2;
   font-style: italic;
   font-size: 15px;
-}
-.hud-ledger .party {
-  margin-top: 2px;
-  font-size: 13px;
-  color: rgba(236, 228, 206, 0.6);
-}
-.hud-ledger .party b {
-  border: 0;
-  padding: 0;
-  font-size: 14px;
-  letter-spacing: 0.12em;
-  color: var(--paper);
 }
 @keyframes pulse {
   from {
@@ -885,10 +874,10 @@ canvas {
   border-color: rgba(236, 228, 206, 0.6);
   font-size: 14px;
 }
-.hud.aboard .hud-invite .bot {
+.hud.aboard .hud-bot {
   display: none;
 }
-/* Below this width the centred station panel would run under the depth corner's invite link. */
+/* Below this width the centred station panel would run under the depth corner's invite line. */
 @media (max-width: 1180px) {
   .station {
     align-items: flex-start;

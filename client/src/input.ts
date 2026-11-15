@@ -12,6 +12,9 @@ addEventListener("keydown", (e) => {
 addEventListener("keyup", (e) => held.delete(e.code));
 addEventListener("blur", () => held.clear());
 
+/** Lets go of every held key, as if each were released. */
+export const releaseKeys = () => held.clear();
+
 const deadzone = (v: number) => (Math.abs(v) < 0.15 ? 0 : v);
 
 /** Forward, right and up from the held keys, each -1, 0 or 1. */

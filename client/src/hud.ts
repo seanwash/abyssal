@@ -8,6 +8,7 @@ import type { Area } from "../../shared/level";
 import { BAG_SLOTS } from "../../shared/loot/haul";
 import { ITEMS } from "../../shared/loot/items";
 import { BOT_ID } from "../../shared/protocol";
+import { Menu } from "./menu/menu";
 import type {
   CreatureSnapshot,
   DiverSnapshot,
@@ -15,7 +16,6 @@ import type {
   Net,
   NetStatus,
 } from "./net";
-import { PARTY } from "./party";
 import { isMuted } from "./sound";
 
 const NUMERALS = ["I", "II", "III", "IV"];
@@ -276,14 +276,16 @@ const captionFor = (
 
 /**
  * The HUD as a specimen plate: a thin double rule around the screen, the plate and place top left,
- * depth and the party's invite top right, both divers' air bottom left, the bag bottom right, and a
- * caption at the bottom centre naming what you are near and what the action key does to it.
+ * depth top right over the line that opens the menu, which asks you to invite a buddy while you dive
+ * alone, both divers' air bottom left, the bag bottom right, and a caption at the bottom centre
+ * naming what you are near and what the action key does to it.
  */
 export class Hud {
   private root = el("div", "hud", document.body);
   private depth: HTMLElement;
   private status: HTMLElement;
   private mute: HTMLElement;
+  private menu: Menu;
   private invite: HTMLElement;
   private inviteBot: HTMLElement;
   private ledger: HTMLElement;
@@ -318,7 +320,11 @@ export class Hud {
   private since = performance.now();
   private v = new THREE.Vector3();
 
-  constructor() {
+  constructor(onBuddy: () => void) {
+    this.menu = new Menu({
+      buddy: onBuddy,
+      numbers: () => this.toggleNumbers(),
+    });
     el("div", "hud-mat", this.root);
     el("div", "hud-frame", this.root, "<i></i><i></i><i></i><i></i>");
     const place = el(
@@ -340,51 +346,23 @@ export class Hud {
     this.depth = part(right, ".v");
     this.mute = el("div", "hud-mute", right, "Sound off &middot; <b>M</b>");
     this.status = el("div", "hud-status", right);
-    this.invite = el(
-      "div",
+    const invite = el(
+      "button",
       "hud-invite",
       right,
-      '<div class="kick">Party</div><div class="code"></div><button type="button">Copy invite link</button>'
+      '<span class="ask">Invite a buddy</span><span class="menu-key">Menu</span> <b>Esc</b>'
     );
-    part(this.invite, ".code").textContent = PARTY;
-    this.inviteBot = el(
-      "div",
-      "bot",
-      this.invite,
-      "or <b>B</b> for a bot buddy"
-    );
-    const button = part(this.invite, "button");
-    button.addEventListener("click", async () => {
-      // The invite never carries this tab's name, so the friend picks their own.
-      const link = new URL(location.href);
-      link.search = "";
-      link.searchParams.set("party", PARTY);
-      let copied = true;
-      try {
-        await navigator.clipboard.writeText(link.href);
-      } catch {
-        copied = false;
-      }
-      if (copied) {
-        button.textContent = "Copied";
-        setTimeout(() => {
-          button.textContent = "Copy invite link";
-        }, 1500);
-      } else {
-        // Plain-http LAN addresses have no clipboard, so show the link selected for copying by hand.
-        button.textContent = link.href;
-        getSelection()?.selectAllChildren(button);
-        setTimeout(() => {
-          button.textContent = "Copy invite link";
-        }, 6000);
-      }
+    invite.type = "button";
+    invite.addEventListener("click", () => {
+      this.menu.toggle();
       // Space acts, so keep it from pressing the button again.
-      button.blur();
+      invite.blur();
     });
+    this.invite = invite;
+    this.inviteBot = el("div", "hud-bot", right, "or <b>B</b> for a bot buddy");
 
     this.ledger = el("div", "hud-ledger", this.root);
     this.rows = el("div", "rows", this.ledger);
-    el("div", "party", this.ledger, `Party <b>${PARTY}</b>`);
 
     this.bag = el(
       "div",
@@ -427,12 +405,15 @@ export class Hud {
       localStorage.getItem(DEV_NUMBERS) === "1"
     );
     addEventListener("keydown", (e) => {
-      if (e.code !== "Backquote" || e.repeat) {
-        return;
+      if (e.code === "Backquote" && !e.repeat) {
+        this.toggleNumbers();
       }
-      const on = this.dev.classList.toggle("show");
-      localStorage.setItem(DEV_NUMBERS, on ? "1" : "0");
     });
+  }
+
+  private toggleNumbers() {
+    const on = this.dev.classList.toggle("show");
+    localStorage.setItem(DEV_NUMBERS, on ? "1" : "0");
   }
 
   update(
@@ -450,8 +431,17 @@ export class Hud {
     setHtml(this.status, this.notice || STATUS_TEXT[status]);
     this.mute.classList.toggle("show", isMuted());
     const human = divers.some((d) => !d.local && d.id !== BOT_ID);
-    this.invite.classList.toggle("show", status === "online" && !human);
-    this.inviteBot.classList.toggle("show", divers.length === 1);
+    const online = status === "online";
+    this.invite.classList.toggle("alone", online && !human);
+    this.menu.sync(
+      {
+        online,
+        bot: divers.some((d) => d.id === BOT_ID),
+        numbers: this.dev.classList.contains("show"),
+      },
+      online && !human
+    );
+    this.inviteBot.classList.toggle("show", online && divers.length === 1);
 
     const live = new Set<string>();
     for (const d of divers) {
