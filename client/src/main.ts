@@ -2,7 +2,7 @@ import { pass } from "three/tsl";
 import * as THREE from "three/webgpu";
 
 import { pickTarget } from "../../shared/arena";
-import type { Fx, Target } from "../../shared/arena";
+import type { FightTable, Fx, Target } from "../../shared/arena";
 import { DT, SUITS } from "../../shared/constants";
 import { SPECIES } from "../../shared/creatures";
 import { groundHeight, nearestStation } from "../../shared/level";
@@ -343,7 +343,7 @@ const main = async () => {
     }
   };
   /** The effect and sound each of the fight's own kinds of fx plays; kinds left out only show in the HUD. */
-  const fxPlayers: Partial<Record<Fx["k"], (s: FxScene) => void>> = {
+  const fxPlayers: FightTable<(s: FxScene) => void> = {
     harpoon: ({ f, loud }) => {
       if (f.p && f.q) {
         effects.harpoon(f.p, f.q);

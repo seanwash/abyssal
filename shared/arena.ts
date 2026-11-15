@@ -44,30 +44,40 @@ export interface ArenaDiver {
   target: Target | null;
 }
 
+/** The fight's own events: every species shares them, and the HUD and main.ts play them. */
+export type FightEvent =
+  | "harpoon"
+  | "bite"
+  | "shock"
+  | "calmed"
+  | "wrecked"
+  | "down"
+  | "revived"
+  | "clear"
+  | "wiped"
+  | "reset"
+  | "bagged"
+  | "pried"
+  | "dropped"
+  | "returned"
+  | "aboard"
+  | "dived";
+
+/**
+ * A table of what to do for each of the fight's own events. A species' own event fails typecheck
+ * in it, since only that creature's view plays those.
+ */
+export type FightTable<T> = Partial<
+  Record<FightEvent, T> & Record<CreatureEvent, never>
+>;
+
 /**
  * Something that happened this tick, broadcast to clients for effects and messages. `k` is one of
- * the fight's own events, which every species shares and the HUD plays, or a `CreatureEvent` that
- * a species names for itself about the creature `id`, which only that creature's view plays.
+ * the fight's own events, or a `CreatureEvent` that a species names for itself about the creature
+ * `id`, which only that creature's view plays.
  */
 export interface Fx {
-  k:
-    | CreatureEvent
-    | "harpoon"
-    | "bite"
-    | "shock"
-    | "calmed"
-    | "wrecked"
-    | "down"
-    | "revived"
-    | "clear"
-    | "wiped"
-    | "reset"
-    | "bagged"
-    | "pried"
-    | "dropped"
-    | "returned"
-    | "aboard"
-    | "dived";
+  k: FightEvent | CreatureEvent;
   id?: string;
   by?: string;
   p?: [number, number, number];

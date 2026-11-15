@@ -1,7 +1,7 @@
 import * as THREE from "three/webgpu";
 
 import { AIR_MAX, PHASE } from "../../shared/arena";
-import type { Fx, Target } from "../../shared/arena";
+import type { FightTable, Fx, Target } from "../../shared/arena";
 import { SUITS } from "../../shared/constants";
 import { SPECIES } from "../../shared/creatures";
 import type { Area } from "../../shared/level";
@@ -544,7 +544,7 @@ export class Hud {
     const latin = item
       ? `<i class="cat-${item.category}">${escape(item.latin)}</i>`
       : "";
-    const line = {
+    const lines: FightTable<string> = {
       bagged: `${by} bagged ${latin}`,
       pried: `Pried free together: ${latin}`,
       dropped:
@@ -564,7 +564,8 @@ export class Hud {
       clear: `Reef clear in ${Math.round(f.t ?? 0)} s. It resets shortly.`,
       wiped: "Both divers are down. The dive starts over.",
       reset: "The reef resets: the sick animals and the machines are back.",
-    }[f.k as string];
+    };
+    const line = lines[f.k];
     if (line) {
       this.news(line, f.k === "clear" || f.k === "pried" ? 6000 : 3200);
     }
