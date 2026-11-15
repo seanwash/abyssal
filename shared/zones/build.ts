@@ -10,6 +10,7 @@ import type {
   LootSpot,
   MapPoint,
   Point,
+  Route,
 } from "../level";
 import { fbm2, mulberry32 } from "../rng";
 
@@ -91,6 +92,7 @@ export interface ZonePlan {
   clearings: (MapPoint & { r: number })[];
   stations: { id: string; name: string; at: MapPoint }[];
   areas: Area[];
+  route: Route;
   /** Places the boulders, in the order given, once the ground is built. */
   rocks: (p: Placer) => void;
   /** Places the creatures, finds, jellies and spawns, once the ground and rocks are built. */
@@ -449,6 +451,7 @@ export const buildZone = (plan: ZonePlan): Level => {
       ...toWorld(s.at.u, s.at.v),
     })),
     areas: plan.areas,
+    route: plan.route,
   };
   const placer = new Placer(level, plan.seed);
   plan.rocks(placer);

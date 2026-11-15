@@ -41,6 +41,8 @@ const MAIN = [
 ];
 /** The optional way down to McAbee Boulders, kept clear of kelp. */
 const TO_MCABEE = [p(32, 5), p(18, -6), p(4, -16)];
+/** The Anchovy Line's trail, north-east from the corridor into the bay toward Moss Landing. */
+const ANCHOVY = [p(60, 4), p(72, 22), p(86, 38), p(100, 52), p(114, 66)];
 
 /** Crevices, each a slot whose far end hides something. */
 const CREVICES = {
@@ -267,6 +269,7 @@ export const CANNERY_ROW: ZonePlan = {
       light: { water: 0x05_0b_10, dark: 0.95, reach: 0.95, sun: 0.2 },
     },
   ],
+  route: { main: MAIN, branches: [TO_MCABEE, ANCHOVY], clues: [] },
   rocks,
   populate: (z) => {
     const drone = [

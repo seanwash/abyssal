@@ -107,6 +107,16 @@ export interface Ground {
   fill: Uint8Array;
 }
 
+/** The lines a zone's chart draws, in the map frame. */
+export interface Route {
+  /** The main route, from the first station to the last. */
+  main: MapPoint[];
+  /** Optional routes off the main one, each starting on it. */
+  branches: MapPoint[][];
+  /** Clue markers along the way, such as the Anchovy Line's. */
+  clues: MapPoint[];
+}
+
 export interface Level {
   seed: number;
   name: string;
@@ -122,6 +132,7 @@ export interface Level {
   loot: LootSpot[];
   stations: Station[];
   areas: Area[];
+  route: Route;
 }
 
 /**
