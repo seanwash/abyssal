@@ -109,4 +109,47 @@ export const sound = {
     tone('sine', 392, 392, 0.35, 0.18);
     tone('sine', 587.33, 587.33, 0.6, 0.18, 0.14);
   },
+  /** A find goes into the bag: a pluck and a clink, with a rising run for fossils and evidence. */
+  bagged(v = 1, rare = false) {
+    tone('triangle', 660, 990, 0.07, 0.2 * v);
+    tone('sine', 1318.5, 1318.5, 0.4, 0.12 * v, 0.06);
+    if (rare) [783.99, 987.77, 1174.66, 1567.98].forEach((f, i) => tone('sine', f, f, 1.4, 0.1 * v, 0.12 + i * 0.07, 0.02));
+  },
+  /** Stone grinding while two divers work a fossil loose. */
+  scrape(v = 1) {
+    hiss('bandpass', 380 + Math.random() * 220, 0.25, 0.25 * v);
+    tone('sawtooth', 72, 55, 0.2, 0.04 * v);
+  },
+  /** A fossil cracks free of the rock. */
+  pried(v = 1) {
+    hiss('lowpass', 1400, 0.25, 0.5 * v);
+    tone('sine', 120, 55, 0.3, 0.3 * v);
+    [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => tone('sine', f, f, 1.8, 0.1 * v, 0.2 + i * 0.08, 0.02));
+  },
+  /** Something falls from a wreck to the floor. */
+  dropped(v = 1) {
+    tone('sine', 190, 60, 0.4, 0.3 * v);
+    hiss('lowpass', 500, 0.3, 0.3 * v);
+  },
+  /** A bag's unlogged finds are lost. */
+  returned() {
+    [523.25, 466.16, 392].forEach((f, i) => tone('sine', f, f, 0.6, 0.14, i * 0.16, 0.02));
+  },
+  /** Climbing out at the station: a splash and the station's bell. */
+  aboard() {
+    hiss('bandpass', 900, 0.5, 0.35);
+    hiss('lowpass', 300, 0.7, 0.3, 0.05);
+    tone('sine', 880, 880, 2.2, 0.16, 0.3, 0.003);
+    tone('sine', 2217, 2217, 1.1, 0.05, 0.3, 0.003);
+  },
+  /** One find written into the log: a pen stroke and a chime. */
+  logged(rare = false) {
+    hiss('highpass', 3000, 0.12, 0.12);
+    tone('sine', rare ? 1046.5 : 783.99, rare ? 1046.5 : 783.99, 0.7, 0.1, 0.08, 0.01);
+  },
+  /** Going back in the water. */
+  dived() {
+    hiss('bandpass', 700, 0.6, 0.35);
+    tone('sine', 300, 120, 0.5, 0.1);
+  },
 };

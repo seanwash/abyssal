@@ -5,3 +5,4 @@ bots/out/
 .DS_Store
 .amp/portals/*
 build/
+saves/

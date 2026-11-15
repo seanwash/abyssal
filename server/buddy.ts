@@ -3,21 +3,36 @@ import type { Arena, ArenaDiver } from '../shared/arena';
 import { SPECIES } from '../shared/creatures';
 import { steerVelocity } from '../shared/creatures/common';
 import type { Point } from '../shared/level';
+import { LOOT, type Loot } from '../shared/loot/haul';
+
+export interface BuddyContext {
+  /** Whether the person it follows has climbed out at the station. */
+  leadAboard: boolean;
+  station: { x: number; z: number };
+  loot: Loot[];
+}
 
 /**
  * A computer buddy for the second seat. It follows the human diver, surfaces when its own air runs
- * low, buddy-breathes the human when they go down, and harpoons a machine that comes near. It
+ * low, buddy-breathes the human when they go down, harpoons a machine that comes near, helps pry
+ * a fossil the human is prying, and swims to the station's line when the human climbs out. It
  * leaves calming to the human and keeps out of the creatures' territories.
  */
-export function buddyInput(arena: Arena, me: ArenaDiver) {
+export function buddyInput(arena: Arena, me: ArenaDiver, ctx: BuddyContext) {
   const s = me.sim;
   const lead = [...arena.divers.values()].find((d) => d !== me);
   let goal: Point = s, act = false, speed = SWIM_SPEED, slow = false;
   const drone = arena.creatures.find((c) => SPECIES[c.kind].action === 'harpoon' && !SPECIES[c.kind].done(c));
   const dist = (p: Point) => Math.hypot(p.x - s.x, p.y - s.y, p.z - s.z);
-  if (lead?.down) {
+  const prying = lead?.target?.kind === 'pry' ? ctx.loot.find((l) => l.id === lead.target!.id && l.state === LOOT.lying) : undefined;
+  if (ctx.leadAboard) {
+    goal = { x: ctx.station.x, y: SURFACE_Y - 0.9, z: ctx.station.z };
+  } else if (lead?.down) {
     goal = lead.sim;
     act = dist(lead.sim) < 2.2;
+  } else if (prying && me.air >= 22) {
+    goal = { x: prying.x, y: prying.y + 0.5, z: prying.z };
+    if (dist(prying) < 1.1) { act = true; slow = true; }
   } else if (me.air < 22) {
     goal = { x: s.x, y: SURFACE_Y - 0.9, z: s.z };
   } else if (drone && (dist(drone) < 8 || (lead && Math.hypot(drone.x - lead.sim.x, drone.y - lead.sim.y, drone.z - lead.sim.z) < 8))) {

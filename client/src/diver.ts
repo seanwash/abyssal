@@ -33,6 +33,8 @@ export class DiverView {
   private plumb: THREE.LineSegments;
   private plumbOpacity = uniform(0);
   private lampIntensity: number;
+  /** How much of the headlamp's strength is left after dimming for a wall in front, 0 to 1. */
+  private glare = 1;
   private bubbleState: { p: THREE.Vector3; v: number; age: number; life: number; s: number }[] = [];
   private nextBreath = 0;
   private kick = 0;
@@ -142,10 +144,12 @@ export class DiverView {
   }
 
   /**
-   * `ground` is the height of the first surface straight below the diver. A diver out of air
-   * (`down`) rolls onto its side, stops kicking and its lamp dims.
+   * `ground` is the height of the first surface straight below the diver, and `ahead` the height
+   * of the ground a metre in front. A diver out of air (`down`) rolls onto its side, stops kicking
+   * and its lamp dims. The headlamp also dims when ground or rock rises right in front, such as a
+   * crevice's end wall, which it would otherwise light to a white glare.
    */
-  update(dt: number, t: number, pos: THREE.Vector3, yaw: number, vel: THREE.Vector3, ground: number, down = false) {
+  update(dt: number, t: number, pos: THREE.Vector3, yaw: number, vel: THREE.Vector3, ground: number, down = false, ahead = -Infinity) {
     this.root.position.copy(pos);
     this.updatePlumb(pos, ground);
     const speed = Math.hypot(vel.x, vel.z);
@@ -160,7 +164,9 @@ export class DiverView {
     this.jolt *= Math.exp(-7 * dt);
     const shudder = Math.sin(t * 55) * this.jolt * 0.35;
     this.body.rotation.set(this.pitch + shudder * 0.5, 0, THREE.MathUtils.clamp(this.bank, -0.5, 0.5) + this.roll + shudder);
-    this.lamp.intensity = this.lampIntensity * (down ? 0.2 : 1);
+    const wall = THREE.MathUtils.clamp((ahead - (pos.y - 0.4)) / 1.0, 0, 1);
+    this.glare += ((1 - 0.8 * wall) - this.glare) * (1 - Math.exp(-6 * dt));
+    this.lamp.intensity = this.lampIntensity * (down ? 0.2 : this.glare);
     this.lampStrength.value = down ? 0.2 : 1;
     this.body.position.y = Math.sin(t * 1.1) * 0.04;
 

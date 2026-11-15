@@ -8,6 +8,8 @@ export interface Jelly { x: number; y: number; z: number; scale: number; phase: 
 export interface Point { x: number; y: number; z: number }
 /** Where a creature starts. `kind` names its module in `shared/creatures`; `route` is a loop to patrol, for creatures that patrol. */
 export interface CreatureSpawn { id: string; kind: string; at: Point; route?: Point[] }
+/** Where a find lies on the reef. `item` names its entry in `shared/loot/items.ts`. */
+export interface LootSpot { id: string; item: string; at: Point }
 
 export interface Level {
   seed: number;
@@ -19,6 +21,9 @@ export interface Level {
   jellies: Jelly[];
   spawns: Point[];
   creatures: CreatureSpawn[];
+  loot: LootSpot[];
+  /** The field station's descent line: a float on the surface above x, z, where divers climb out. */
+  station: { x: number; z: number };
 }
 
 /**
@@ -40,12 +45,45 @@ function hollowDepth(x: number, z: number) {
   return d < 1 ? HOLLOW.depth * (0.5 + 0.5 * Math.cos(Math.PI * d)) : 0;
 }
 
+/**
+ * Narrow slots in the reef flat, about two metres deep, each running from a closed far end toward
+ * the camera and ramping up to the reef at the near end, so their walls never hide a diver in
+ * one. The lamp lights by 3D distance, so what lies at the far end shows only to a diver who
+ * swims down into the slot.
+ */
+const CREVICES = [
+  { x0: 13.5, z0: -9.5, len: 4, halfWidth: 1.6, depth: 2.2 },
+  { x0: 15.6, z0: -2, len: 4, halfWidth: 1.6, depth: 2.2 },
+  { x0: -18.5, z0: 1.5, len: 4, halfWidth: 1.5, depth: 2.6 },
+];
+/** Length of the ramp at a crevice's near end. */
+const CREVICE_RAMP = 3.5;
+/** Crevices run along the camera's line of sight, away from it toward lower x and z. */
+const SLOT = Math.SQRT1_2;
+
+function creviceDepth(x: number, z: number) {
+  let deepest = 0;
+  for (const c of CREVICES) {
+    const px = x - c.x0, pz = z - c.z0;
+    const along = (px + pz) * SLOT;
+    const across = Math.abs(pz - px) * SLOT;
+    if (across >= c.halfWidth || along <= -c.halfWidth || along >= c.len + CREVICE_RAMP) continue;
+    const d = Math.hypot(across, Math.min(0, along)) / c.halfWidth;
+    if (d >= 1) continue;
+    // A flat bottom with steep walls, rising to the reef along the ramp.
+    const k = Math.max(0, (d - 0.5) / 0.5);
+    const r = Math.max(0, Math.min(1, (along - c.len) / CREVICE_RAMP));
+    deepest = Math.max(deepest, c.depth * (1 - k * k * (3 - 2 * k)) * (1 - r * r * (3 - 2 * r)));
+  }
+  return deepest;
+}
+
 /** Seafloor height in metres. Positive z is toward the shore, so the floor rises there. */
 export function floorHeight(x: number, z: number): number {
   const shore = Math.max(0, z - 4) * 0.28;
   const dunes = (fbm2(x * 0.08, z * 0.08, 4, 11) - 0.5) * 1.6;
   const ripples = Math.sin(x * 0.9 + Math.sin(z * 0.35) * 1.6) * 0.06;
-  return FLOOR_BASE_Y + shore + dunes + ripples - hollowDepth(x, z);
+  return FLOOR_BASE_Y + shore + dunes + ripples - hollowDepth(x, z) - creviceDepth(x, z);
 }
 
 /** Collision half-heights and radii of a boulder, slightly inside the rendered rock. */
@@ -64,6 +102,10 @@ export function groundHeight(level: Level, x: number, z: number, below = Infinit
     if (top > y && top < below) y = top;
   }
   return y;
+}
+
+function spot(id: string, item: string, x: number, z: number): LootSpot {
+  return { id, item, at: { x, y: floorHeight(x, z) + 0.08, z } };
 }
 
 const CLEARINGS = [{ x: 0, z: 6, r: 3 }];
@@ -169,7 +211,8 @@ export function buildLevel(seed = 7): Level {
     seed,
     floorExtentX: (PLAY_HALF_X + 14) * 2,
     floorExtentZ: (PLAY_HALF_Z + 12) * 2,
-    floorRes: 80,
+    // Fine enough that the crevices' walls stay steep.
+    floorRes: 144,
     boulders,
     kelp,
     jellies,
@@ -182,5 +225,22 @@ export function buildLevel(seed = 7): Level {
       { id: 'lingcod', kind: 'lingcod', at: { x: -8.3, y: floorHeight(-8.3, -7), z: -7 } },
       { id: 'drone', kind: 'drone', at: patrol[0], route: patrol },
     ],
+    loot: [
+      // On open sand near the line, so the first find teaches bagging.
+      spot('urchin-flat', 'urchin-test', 3.5, 9),
+      spot('urchin-pinnacle', 'urchin-test', 12.8, -2.3),
+      // Low in the kelp groves.
+      spot('snail-grove', 'turban-snail', 7.2, 0.2),
+      spot('snail-north', 'turban-snail', 13.5, 10.5),
+      // Under the arch's cap.
+      spot('abalone-arch', 'abalone-shell', -9, 9.3),
+      // At the far ends of the crevices.
+      spot('star-crevice', 'sunflower-star', 14.15, -8.85),
+      spot('shells-crevice', 'capitola-shells', 16.25, -1.35),
+      spot('tooth-crevice', 'megalodon-tooth', -17.85, 2.15),
+      // On the floor of the Hollow, past the lingcod.
+      spot('bloom-hollow', 'bloom-sample', -11, -13.5),
+    ],
+    station: { x: 0, z: 7.2 },
   };
 }

@@ -54,6 +54,8 @@ export interface Species<C extends Creature = Creature> {
   needsSight: boolean;
   /** How far from its home it is dangerous; the bot buddy keeps out of this. */
   territory?: number;
+  /** The item it leaves behind once calmed or wrecked, by its key in `shared/loot/items.ts`. */
+  drops?: string;
   spawn(at: CreatureSpawn): C;
   /** Whether it is out of the fight: calmed or wrecked. */
   done(c: CreatureShape): boolean;

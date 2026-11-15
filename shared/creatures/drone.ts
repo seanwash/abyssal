@@ -33,6 +33,7 @@ export const drone: Species<Drone> = {
   range: 7.5,
   reachAround: 1.2,
   needsSight: true,
+  drops: 'drone-housing',
 
   spawn(s) {
     return {

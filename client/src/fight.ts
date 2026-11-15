@@ -124,6 +124,7 @@ export class Effects {
   private shocks = new Pulses(this.objects, 0x8fe8ff, 2, SHOCK_RADIUS, 0.4);
   private soothes = new Pulses(this.objects, 0xb9d8ff, 4, 1.4, 0.9, 0.35);
   private reliefs = new Pulses(this.objects, 0xb894ff, 1, 2.4, 0.9, 0.45);
+  private finds = new Pulses(this.objects, 0xfff2c8, 2, 0.7, 0.5, 0.3);
   private sparks = new Sparks();
   private up = new THREE.Vector3(0, 1, 0);
 
@@ -175,6 +176,17 @@ export class Effects {
     this.sparks.burst(p, 48, 0xa070ff, 1.6, 0.7, 2.8, 0.06);
   }
 
+  /** A find leaves the floor: a small ring and motes in its category's colour; `big` for a fossil pried free. */
+  collect(p: ArrayLike<number>, tint: number, big = false) {
+    this.finds.fire(p);
+    this.sparks.burst(p, big ? 44 : 16, tint, big ? 2.2 : 1.1, 0.6, big ? 1.8 : 1.0, big ? 0.05 : 0.035);
+  }
+
+  /** Grit off a fossil while divers pry it. */
+  grit(p: ArrayLike<number>) {
+    this.sparks.burst(p, 4, 0xd8c8a0, 1.2, -0.4, 0.6, 0.025);
+  }
+
   wrecked(p: ArrayLike<number>) {
     this.shocks.fire(p);
     this.sparks.burst(p, 36, 0xffa040, 5, -0.4, 0.8, 0.04);
@@ -189,6 +201,7 @@ export class Effects {
     this.shocks.update(dt);
     this.soothes.update(dt);
     this.reliefs.update(dt);
+    this.finds.update(dt);
     this.sparks.update(dt);
   }
 }

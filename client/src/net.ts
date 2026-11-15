@@ -4,6 +4,7 @@ import type { Fx } from '../../shared/arena';
 import type { Level } from '../../shared/level';
 import { stepDiver } from '../../shared/physics';
 import { CLOSE_REPLACED, ERROR_DIVE_FULL, swimInput, type DiverInput, type DiverSim, type JoinOptions } from '../../shared/protocol';
+import type { StationMessage } from '../../shared/station';
 import { DIVER_ID, PARTY } from './party';
 
 export interface DiverSnapshot {
@@ -17,7 +18,13 @@ export interface DiverSnapshot {
   air: number;
   down: boolean;
   revive: number;
+  /** Out of the water at the field station. */
+  aboard: boolean;
+  /** Item keys in the diver's dive bag. */
+  bag: string[];
 }
+
+export interface LootSnapshot { id: string; item: string; x: number; y: number; z: number; state: number; work: number; hands: number }
 
 export interface CreatureSnapshot {
   id: string;
@@ -35,6 +42,8 @@ interface RemoteDiver {
   air: number;
   down: boolean;
   revive: number;
+  aboard: boolean;
+  bag: string[];
   samples: Sample[];
 }
 
@@ -44,6 +53,7 @@ interface ServerDiver {
   name: string; suit: number;
   x: number; y: number; z: number; vx: number; vy: number; vz: number; yaw: number; ack: number;
   air: number; down: number; revive: number;
+  aboard: number; bag: Iterable<string>;
 }
 
 interface ServerCreature { kind: string; x: number; y: number; z: number; yaw: number; pitch: number; mode: number; meter: number; charge: number }
@@ -55,6 +65,7 @@ interface ServerState {
   clock: number;
   divers: { forEach(cb: (d: ServerDiver, id: string) => void): void };
   creatures?: { forEach(cb: (c: ServerCreature, id: string) => void): void };
+  loot?: { forEach(cb: (l: Omit<LootSnapshot, 'id'>, id: string) => void): void };
 }
 
 /** Remote divers and creatures render this many server ticks in the past so there are always two samples to blend. */
@@ -122,6 +133,13 @@ export class Net {
   air = 100;
   down = false;
   revive = 0;
+  aboard = false;
+  bag: string[] = [];
+  /** Finds on the reef, as of the latest server state. */
+  loot: LootSnapshot[] = [];
+  /** The party's station log, and station messages since the caller last drained them. */
+  station: StationMessage | null = null;
+  stationNews: StationMessage[] = [];
   phase = 0;
   phaseTime = 0;
   clock = 0;
@@ -198,6 +216,7 @@ export class Net {
     this.creatures.clear();
     room.onStateChange((state: ServerState) => this.onState(state));
     room.onMessage('fx', (list: Fx[]) => { this.fx.push(...list); });
+    room.onMessage('station', (m: StationMessage) => { this.station = m; this.stationNews.push(m); });
     room.onLeave((code) => {
       if (this.room !== room) return;
       this.room = undefined;
@@ -218,11 +237,22 @@ export class Net {
     this.room?.send('buddy');
   }
 
+  /** Climbs out at the station's line; the server checks the diver is close enough. */
+  climb() {
+    this.room?.send('climb');
+  }
+
+  /** Leaves the station and goes back in the water. */
+  dive() {
+    this.room?.send('dive');
+  }
+
   /** One fixed step of local input: predicted immediately, sent to the server for authority. */
   step(dir: { x: number; y: number; z: number }, act: boolean) {
-    const input: DiverInput = { seq: ++this.seq, x: dir.x, y: dir.y, z: dir.z, act: act ? 1 : 0 };
+    // A diver at the station doesn't move; the server still acknowledges its inputs.
+    const input: DiverInput = this.aboard ? { seq: ++this.seq, x: 0, y: 0, z: 0, act: 0 } : { seq: ++this.seq, x: dir.x, y: dir.y, z: dir.z, act: act ? 1 : 0 };
     this.syncPrev();
-    stepDiver(this.level, this.sim, swimInput(input, this.down), DT);
+    if (!this.aboard) stepDiver(this.level, this.sim, swimInput(input, this.down), DT);
     if (this.status === 'online' && this.room) {
       this.pending.push(input);
       if (this.pending.length > MAX_PENDING) this.pending.shift();
@@ -251,6 +281,7 @@ export class Net {
         this.localName = d.name;
         this.localSuit = d.suit;
         this.air = d.air; this.down = !!d.down; this.revive = d.revive;
+        this.aboard = !!d.aboard; this.bag = [...d.bag];
         if (!this.placed) {
           this.placed = true;
           Object.assign(this.sim, { x: d.x, y: d.y, z: d.z, vx: d.vx, vy: d.vy, vz: d.vz, yaw: d.yaw });
@@ -263,11 +294,17 @@ export class Net {
         return;
       }
       let r = this.remotes.get(id);
-      if (!r) { r = { name: d.name, suit: d.suit, air: d.air, down: false, revive: 0, samples: [] }; this.remotes.set(id, r); }
-      r.name = d.name; r.suit = d.suit; r.air = d.air; r.down = !!d.down; r.revive = d.revive;
+      if (!r) { r = { name: d.name, suit: d.suit, air: d.air, down: false, revive: 0, aboard: false, bag: [], samples: [] }; this.remotes.set(id, r); }
+      // A diver going back in reappears at its spawn; drop the old samples so it doesn't glide there.
+      if (r.aboard && !d.aboard) r.samples.length = 0;
+      r.name = d.name; r.suit = d.suit; r.air = d.air; r.down = !!d.down; r.revive = d.revive; r.aboard = !!d.aboard; r.bag = [...d.bag];
       pushSample(r.samples, { tick: state.serverTick, x: d.x, y: d.y, z: d.z, vx: d.vx, vy: d.vy, vz: d.vz, yaw: d.yaw, pitch: 0 });
     });
     for (const id of this.remotes.keys()) if (!seen.has(id)) this.remotes.delete(id);
+
+    const loot: LootSnapshot[] = [];
+    state.loot?.forEach((l, id) => { loot.push({ id, item: l.item, x: l.x, y: l.y, z: l.z, state: l.state, work: l.work, hands: l.hands }); });
+    this.loot = loot;
 
     state.creatures?.forEach((c, id) => {
       let r = this.creatures.get(id);
@@ -310,14 +347,14 @@ export class Net {
       y: p.y + (s.y - p.y) * alpha + this.offset.y,
       z: p.z + (s.z - p.z) * alpha + this.offset.z,
       vx: this.sim.vx, vy: this.sim.vy, vz: this.sim.vz, yaw: this.sim.yaw,
-      air: this.air, down: this.down, revive: this.revive,
+      air: this.air, down: this.down, revive: this.revive, aboard: this.aboard, bag: this.bag,
     }];
     const rt = this.renderTick();
     if (rt === null) return out;
     for (const [id, r] of this.remotes) {
       if (!r.samples.length) continue;
       const q = sampleAt(r.samples, rt);
-      out.push({ id, name: r.name, suit: r.suit, local: false, ...q, air: r.air, down: r.down, revive: r.revive });
+      out.push({ id, name: r.name, suit: r.suit, local: false, ...q, air: r.air, down: r.down, revive: r.revive, aboard: r.aboard, bag: r.bag });
     }
     return out;
   }

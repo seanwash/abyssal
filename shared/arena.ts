@@ -38,20 +38,39 @@ export interface ArenaDiver {
   reload: number;
   /** Seconds between harpoon shots. */
   reloadTime: number;
+  /** What the action key aimed at this tick, while it was held. */
+  target: Target | null;
 }
 
 /** Something that happened this tick, broadcast to clients for effects and messages. */
 export interface Fx {
-  k: 'harpoon' | 'bite' | 'shock' | 'calmed' | 'wrecked' | 'down' | 'revived' | 'clear' | 'wiped' | 'reset';
+  k: 'harpoon' | 'bite' | 'shock' | 'calmed' | 'wrecked' | 'down' | 'revived' | 'clear' | 'wiped' | 'reset'
+    | 'bagged' | 'pried' | 'dropped' | 'returned' | 'aboard' | 'dived';
   id?: string;
   by?: string;
   p?: [number, number, number];
   q?: [number, number, number];
   t?: number;
+  /** The item a loot event is about, by its key in `shared/loot/items.ts`. */
+  item?: string;
+  /** How many finds a loot event covers. */
+  n?: number;
 }
 
-/** What the action key would do, and to whom: buddy-breathe a downed diver, or a creature's action. */
-export interface Target { kind: 'buddy' | 'calm' | 'harpoon'; id: string }
+/** What the action key would do, and to whom: buddy-breathe a downed diver, a creature's action, or one of a `Reachable`'s. */
+export interface Target { kind: 'buddy' | 'calm' | 'harpoon' | Reachable['kind']; id: string }
+
+/**
+ * Something other than a diver or a creature that the action key can aim at, such as a find on
+ * the floor or the station's line. Its own module decides what the action does.
+ */
+export interface Reachable extends Located {
+  kind: 'bag' | 'pry' | 'climb';
+  /** How far the action key reaches it, in metres of 3D distance. */
+  range: number;
+  /** Within this distance the action key reaches it whichever way the diver faces. */
+  reachAround: number;
+}
 
 interface Located { id: string; x: number; y: number; z: number }
 
@@ -66,6 +85,7 @@ export function pickTarget(
   me: Located & { yaw: number },
   divers: (Located & { down: boolean })[],
   creatures: (Located & CreatureShape)[],
+  reach: Reachable[] = [],
 ): Target | null {
   let best: Target | null = null, bestD = Infinity;
   for (const d of divers) {
@@ -87,6 +107,15 @@ export function pickTarget(
     best = { kind: sp.action, id: c.id };
     bestD = dist;
   }
+  for (const r of reach) {
+    const dx = r.x - me.x, dy = r.y - me.y, dz = r.z - me.z;
+    const dist = Math.hypot(dx, dy, dz);
+    if (dist > r.range || dist >= bestD) continue;
+    const ahead = (dx * fx + dz * fz) / Math.max(1e-6, Math.hypot(dx, dy * 0.5, dz));
+    if (ahead < 0.2 && dist > r.reachAround) continue;
+    best = { kind: r.kind, id: r.id };
+    bestD = dist;
+  }
   return best;
 }
 
@@ -98,13 +127,15 @@ export class Arena implements World {
   /** Seconds since the reef last reset. */
   clock = 0;
   fx: Fx[] = [];
+  /** Everything besides divers and creatures the action key can aim at; the server fills it in. */
+  reach: () => Reachable[] = () => [];
 
   constructor(readonly level: Level) {
     this.resetCreatures();
   }
 
   addDiver(id: string, sim: DiverSim, spawn: Point) {
-    this.divers.set(id, { id, sim, spawn, air: AIR_MAX, down: false, revive: 0, act: false, reload: 0, reloadTime: HARPOON_RELOAD });
+    this.divers.set(id, { id, sim, spawn, air: AIR_MAX, down: false, revive: 0, act: false, reload: 0, reloadTime: HARPOON_RELOAD, target: null });
   }
 
   removeDiver(id: string) {
@@ -129,6 +160,7 @@ export class Arena implements World {
 
   /** Runs one fixed step of the fight, after every diver has moved. */
   tick(dt: number) {
+    for (const d of this.divers.values()) d.target = null;
     if (this.phase !== PHASE.dive) {
       this.phaseTime -= dt;
       if (this.phaseTime <= 0) { this.reset(this.phase === PHASE.wiped); return; }
@@ -195,10 +227,12 @@ export class Arena implements World {
     const reviving = new Set<string>();
     const all = [...this.divers.values()];
     const others = all.map((d) => ({ id: d.id, x: d.sim.x, y: d.sim.y, z: d.sim.z, down: d.down }));
+    const reach = this.reach();
     for (const d of all) {
       if (d.down || !d.act) continue;
-      const t = pickTarget(this.level, { id: d.id, ...d.sim }, others, this.creatures);
-      if (!t) continue;
+      const t = pickTarget(this.level, { id: d.id, ...d.sim }, others, this.creatures, reach);
+      d.target = t;
+      if (!t || (t.kind !== 'buddy' && t.kind !== 'calm' && t.kind !== 'harpoon')) continue;
       if (t.kind === 'buddy') {
         const buddy = this.divers.get(t.id)!;
         reviving.add(buddy.id);

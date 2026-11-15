@@ -2,7 +2,9 @@ import * as THREE from 'three/webgpu';
 import { SUITS } from '../../shared/constants';
 import { AIR_MAX, PHASE, type Fx, type Target } from '../../shared/arena';
 import { SPECIES } from '../../shared/creatures';
-import type { CreatureSnapshot, DiverSnapshot, Net, NetStatus } from './net';
+import { BAG_SLOTS } from '../../shared/loot/haul';
+import { ITEMS } from '../../shared/loot/items';
+import type { CreatureSnapshot, DiverSnapshot, LootSnapshot, Net, NetStatus } from './net';
 
 const NUMERALS = ['I', 'II', 'III', 'IV'];
 
@@ -32,6 +34,9 @@ export class Hud {
   private bannerUntil = 0;
   private hint: HTMLElement;
   private hurtFlash: HTMLElement;
+  private bag: HTMLElement;
+  private bagCount: HTMLElement;
+  private mark: HTMLElement;
   private v = new THREE.Vector3();
 
   constructor() {
@@ -46,6 +51,9 @@ export class Hud {
     const a = el('div', 'plate-air', card, '<span class="k">Air</span><span class="bar"><span class="fill"></span></span>');
     this.air = a;
     this.airFill = a.querySelector('.fill')!;
+    const b = el('div', 'plate-bag', card, `<span class="k">Bag</span><span class="slots">${'<span></span>'.repeat(BAG_SLOTS)}</span><span class="n"></span>`);
+    this.bag = b.querySelector('.slots')!;
+    this.bagCount = b.querySelector('.n')!;
     this.roster = el('div', 'plate-roster', card);
     this.status = el('div', 'net-status', this.root);
 
@@ -63,12 +71,13 @@ export class Hud {
     this.banner = el('div', 'banner', this.root);
     this.hint = el('div', 'hint', this.root);
     this.hurtFlash = el('div', 'hurt-flash', this.root);
-    el('div', 'controls', this.root, '<b>WASD</b> or <b>arrows</b> swim &nbsp; <b>Space</b> / <b>E</b> rise &nbsp; <b>Shift</b> / <b>Q</b> sink &nbsp; <b>F</b> / <b>Enter</b> act &nbsp; <b>B</b> bot buddy &nbsp; <b>M</b> mute');
+    this.mark = el('div', 'station-mark', this.root, '<span class="arrow">&#x2191;</span><span class="t">Station line</span>');
+    el('div', 'controls', this.root, '<b>WASD</b> or <b>arrows</b> swim &nbsp; <b>Space</b> / <b>E</b> rise &nbsp; <b>Shift</b> / <b>Q</b> sink &nbsp; <b>F</b> / <b>Enter</b> act &nbsp; <b>Alt</b> labels &nbsp; <b>B</b> bot buddy &nbsp; <b>M</b> mute');
   }
 
   update(divers: DiverSnapshot[], status: NetStatus, camera: THREE.Camera, specimen: THREE.Vector3 | null, w: number, h: number) {
     const me = divers.find((d) => d.local)!;
-    this.depth.textContent = `${Math.max(0, -me.y * 1).toFixed(1)} m`;
+    this.depth.textContent = me.aboard ? 'Station' : `${Math.max(0, -me.y * 1).toFixed(1)} m`;
     this.status.textContent = status === 'online' ? '' : status === 'connecting' ? 'Joining the dive…' : 'Diving solo: no server found';
     this.status.classList.toggle('show', status !== 'online');
 
@@ -84,6 +93,7 @@ export class Hud {
       let tag = this.names.get(d.id);
       if (!tag) { tag = el('div', 'name-tag', this.root); this.names.set(d.id, tag); }
       tag.textContent = d.name;
+      tag.style.display = d.aboard ? 'none' : '';
       this.v.set(d.x, d.y + 0.75, d.z).project(camera);
       tag.style.transform = `translate(${(this.v.x * 0.5 + 0.5) * w}px, ${(-this.v.y * 0.5 + 0.5) * h}px) translate(-50%, -100%)`;
       tag.style.opacity = d.local ? '0.55' : '0.95';
@@ -114,7 +124,16 @@ export class Hud {
   /** Shows a short line across the top for something that just happened in the fight. */
   event(f: Fx, divers: DiverSnapshot[], creatures: CreatureSnapshot[]) {
     const who = nameOf(f.id, divers, creatures), by = nameOf(f.by, divers, creatures);
+    const item = f.item ? ITEMS[f.item] : undefined;
+    const latin = item ? `<i class="cat-${item.category}">${escape(item.latin)}</i>` : '';
+    const finds = (n = 0) => `${n} ${n === 1 ? 'find' : 'finds'}`;
     const line = {
+      bagged: `${by} bagged ${latin}`,
+      pried: `Pried free together: ${latin}`,
+      dropped: `Something fell from the wreck: ${latin}`,
+      returned: `${who} lost ${who === 'You' ? 'your' : 'their'} bag's ${finds(f.n)}. They drift back where they were found.`,
+      // Your own climb-out shows on the station's screen, and an empty-handed one needs no news.
+      aboard: f.n && who !== 'You' ? `${who} climbed out at the station with ${finds(f.n)}.` : '',
       calmed: `${by} calmed ${who}. Its violet glow drains away.`,
       wrecked: `${by} wrecked ${who}.`,
       down: `${who} ${who === 'You' ? 'are' : 'is'} out of air!`,
@@ -126,11 +145,20 @@ export class Hud {
     if (!line) return;
     this.banner.innerHTML = line;
     this.banner.classList.add('show');
-    this.bannerUntil = performance.now() + (f.k === 'clear' ? 6000 : 3200);
+    this.bannerUntil = performance.now() + (f.k === 'clear' || f.k === 'pried' ? 6000 : 3200);
   }
 
-  fight(divers: DiverSnapshot[], creatures: CreatureSnapshot[], target: Target | null, acting: boolean, net: Net, camera: THREE.Camera, w: number, h: number) {
+  fight(divers: DiverSnapshot[], creatures: CreatureSnapshot[], loot: LootSnapshot[], station: { x: number; z: number }, target: Target | null, acting: boolean, net: Net, camera: THREE.Camera, w: number, h: number) {
     const me = divers.find((d) => d.local)!;
+    for (let i = 0; i < BAG_SLOTS; i++) {
+      const slot = this.bag.children[i] as HTMLElement, item = me.bag[i];
+      const cls = item ? `cat-${ITEMS[item]?.category ?? 'specimen'}` : '';
+      if (slot.className !== cls) slot.className = cls;
+      slot.title = item ? ITEMS[item]?.latin ?? item : '';
+    }
+    this.bagCount.textContent = `${me.bag.length}/${BAG_SLOTS}`;
+    this.bag.parentElement!.classList.toggle('full', me.bag.length >= BAG_SLOTS);
+    this.stationMark(me, station, target?.kind === 'climb', camera, w, h);
     const air = Math.max(0, me.air) / AIR_MAX;
     this.airFill.style.width = `${(air * 100).toFixed(1)}%`;
     this.air.classList.toggle('low', air < 0.25);
@@ -147,14 +175,20 @@ export class Hud {
     const sick = creatures
       .filter((c) => SPECIES[c.kind]?.action === 'calm' && !SPECIES[c.kind].done(c))
       .sort((a, b) => dist(a) - dist(b))[0];
-    const tc = target && target.kind !== 'buddy' ? creatures.find((x) => x.id === target.id) : undefined;
+    const tc = target && (target.kind === 'calm' || target.kind === 'harpoon') ? creatures.find((x) => x.id === target.id) : undefined;
+    const tl = target && (target.kind === 'bag' || target.kind === 'pry') ? loot.find((x) => x.id === target.id) : undefined;
     let label = '', anchor: { x: number; y: number; z: number } | null = null, fill = 0, kind = '';
     if (target) {
       const d = divers.find((x) => x.id === target.id);
+      const full = me.bag.length >= BAG_SLOTS;
       label = target.kind === 'buddy' ? 'Hold <b>F</b> to buddy-breathe'
         : target.kind === 'calm' ? (tc && SPECIES[tc.kind].busy(tc) ? 'Too agitated: wait for it to settle' : 'Hold <b>F</b> to calm')
-        : 'Press <b>F</b> to harpoon';
-      anchor = d ?? tc ?? null;
+        : target.kind === 'harpoon' ? 'Press <b>F</b> to harpoon'
+        : target.kind === 'climb' ? `Press <b>F</b> to climb out${me.bag.length ? ` and log ${me.bag.length} ${me.bag.length === 1 ? 'find' : 'finds'}` : ''}`
+        : full ? 'Bag full: climb out at the station to log it'
+        : target.kind === 'pry' ? `Both divers hold <b>F</b> to pry it free <span class="dist">${tl?.hands ?? 0} of 2</span>`
+        : 'Hold <b>F</b> to bag';
+      anchor = d ?? tc ?? (tl ? { x: tl.x, y: tl.y + 0.6, z: tl.z } : null) ?? (target.kind === 'climb' ? { x: station.x, y: -0.6, z: station.z } : null);
     } else if (sick && !me.down) {
       const range = SPECIES[sick.kind].range, d = dist(sick);
       if (d < range * 2.5) {
@@ -181,9 +215,39 @@ export class Hud {
     if (me.down) hint = partner ? `Out of air. ${escape(partner.name)} can hold <b>F</b> beside you to buddy-breathe.` : 'Out of air. Press <b>B</b> for a bot buddy, or wait for the reset.';
     else if (net.phase === PHASE.clear) hint = `Reef clear. Resets in ${Math.ceil(net.phaseTime)} s.`;
     else if (air < 0.25) hint = 'Air is low: rise to the surface to refill.';
+    else if (me.bag.length >= BAG_SLOTS) hint = 'Bag full: climb out at the station&rsquo;s line to log it.';
     else if (!partner && net.status === 'online') hint = 'Diving alone: press <b>B</b> for a bot buddy, or open this link in a second window.';
+    else if (me.bag.length) hint = 'Finds count once you climb out at the station&rsquo;s line to log them.';
+    if (me.aboard) hint = '';
     if (this.hint.innerHTML !== hint) this.hint.innerHTML = hint;
     this.hint.classList.toggle('show', !!hint);
+  }
+
+  /** Points at the station's line while your bag has finds or you are near the surface: at the float when it is on screen, else from the screen's edge. */
+  private stationMark(me: DiverSnapshot, station: { x: number; z: number }, climbing: boolean, camera: THREE.Camera, w: number, h: number) {
+    const show = !me.aboard && !me.down && !climbing && (me.bag.length > 0 || me.y > -3);
+    this.mark.classList.toggle('show', show);
+    if (!show) return;
+    this.v.set(station.x, 0.9, station.z).project(camera);
+    let x = (this.v.x * 0.5 + 0.5) * w, y = (-this.v.y * 0.5 + 0.5) * h;
+    // Keeps clear of the banner at the top and the plate card at the top left.
+    const pad = 100, cx = w / 2, cy = h / 2;
+    const inside = x > pad && x < w - pad && y > pad && y < h - pad;
+    let angle = 0;
+    if (!inside) {
+      const dx = x - cx, dy = y - cy;
+      const k = Math.min((cx - (dx < 0 ? 300 : pad)) / Math.abs(dx || 1e-6), (cy - pad) / Math.abs(dy || 1e-6));
+      x = cx + dx * k; y = cy + dy * k;
+      angle = Math.atan2(dx, -dy);
+    } else {
+      angle = Math.PI;
+    }
+    const dist = Math.hypot(me.x - station.x, me.z - station.z);
+    const t = this.mark.querySelector('.t')!;
+    const text = inside ? 'Station line' : `Station line ${dist.toFixed(0)} m`;
+    if (t.textContent !== text) t.textContent = text;
+    (this.mark.querySelector('.arrow') as HTMLElement).style.transform = `rotate(${angle}rad)`;
+    this.mark.style.transform = `translate(${x}px, ${y}px) translate(-50%, ${inside ? '-100%' : '-50%'})`;
   }
 }
 

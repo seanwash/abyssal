@@ -2,8 +2,9 @@ import { Client, type Room } from '@colyseus/sdk';
 import { CLOSE_REPLACED, ERROR_DIVE_FULL } from '../shared/protocol';
 
 /**
- * Checks the dive server alone: party rooms, input acknowledgement, a full party, a dropped diver
- * rejoining its own seat, position and air, and the bot buddy giving its seat to a person.
+ * Checks the dive server alone: party rooms, starting at the field station, input acknowledgement,
+ * a full party, a dropped diver rejoining its own seat, position and air, and the bot buddy giving
+ * its seat to a person. `bots/save.ts` checks bagging, the station and the save.
  *
  *   SERVER_URL=ws://127.0.0.1:2567 npx tsx bots/smoke.ts
  */
@@ -27,6 +28,13 @@ check(other.roomId !== a.roomId, 'another party code gets its own dive');
 
 const third = await join('smoke-diver-dddd', 'Bot D').then(() => 0, (e) => e.code);
 check(third === ERROR_DIVE_FULL, 'a third diver is turned away from a full party');
+
+// Divers start at the field station and go in from there.
+check(me(a).aboard === 1 && me(b).aboard === 1, 'new divers start at the field station');
+a.send('dive');
+b.send('dive');
+await sleep(300);
+check(me(a).aboard === 0 && me(b).aboard === 0, 'both divers go in the water');
 
 let seq = 0;
 for (let i = 0; i < 60; i++) {

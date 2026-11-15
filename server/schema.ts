@@ -14,6 +14,10 @@ export const DiverState = schema({
   air: t.float32(),
   down: t.uint8(),
   revive: t.float32(),
+  /** 1 while the diver is out of the water at the field station. */
+  aboard: t.uint8(),
+  /** Item keys in the diver's dive bag. */
+  bag: t.array('string'),
 }, 'DiverState');
 export type DiverState = SchemaType<typeof DiverState>;
 
@@ -30,11 +34,23 @@ export const CreatureState = schema({
 }, 'CreatureState');
 export type CreatureState = SchemaType<typeof CreatureState>;
 
+export const LootState = schema({
+  item: t.string(),
+  x: t.float32(),
+  y: t.float32(),
+  z: t.float32(),
+  state: t.uint8(),
+  work: t.float32(),
+  hands: t.uint8(),
+}, 'LootState');
+export type LootState = SchemaType<typeof LootState>;
+
 export const DiveState = schema({
   seed: t.uint32(),
   serverTick: t.uint32(),
   divers: t.map(DiverState),
   creatures: t.map(CreatureState),
+  loot: t.map(LootState),
   phase: t.uint8(),
   phaseTime: t.float32(),
   clock: t.float32(),
