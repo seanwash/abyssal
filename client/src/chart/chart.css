@@ -1,0 +1,258 @@
+.chart {
+  --gold: #c9a24a;
+  --gold-faint: rgba(201, 162, 74, 0.32);
+  --paper: #ece4ce;
+  position: fixed;
+  left: 50%;
+  top: calc(50% - 8px);
+  z-index: 2;
+  width: min(100vw - 320px, (100vh - 290px) * var(--aspect), 1240px);
+  padding: 14px 14px 8px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.15s,
+    visibility 0s 0.15s;
+  font-family: "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
+  color: var(--paper);
+  background: rgba(3, 8, 11, 0.5);
+}
+.chart.show {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.15s;
+}
+.chart.aboard {
+  display: none;
+}
+.chart-frame {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--gold-faint);
+}
+.chart-frame::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1px solid var(--gold-faint);
+}
+.chart-frame i {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  background: #0b151c;
+  border: 1px solid rgba(201, 162, 74, 0.6);
+  transform: rotate(45deg);
+}
+.chart-frame i:nth-child(1) {
+  left: -4px;
+  top: -4px;
+}
+.chart-frame i:nth-child(2) {
+  right: -4px;
+  top: -4px;
+}
+.chart-frame i:nth-child(3) {
+  left: -4px;
+  bottom: -4px;
+}
+.chart-frame i:nth-child(4) {
+  right: -4px;
+  bottom: -4px;
+}
+.chart-map {
+  position: relative;
+  aspect-ratio: var(--aspect);
+}
+.chart-map canvas,
+.chart-map svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.chart svg text {
+  font-family: inherit;
+  text-anchor: middle;
+  fill: var(--paper);
+  paint-order: stroke;
+  stroke: rgba(3, 8, 11, 0.85);
+  stroke-width: 0.7px;
+  stroke-linejoin: round;
+}
+.chart .sounding {
+  font-size: 2.6px;
+  font-style: italic;
+  fill: rgba(236, 228, 206, 0.62);
+  stroke: none;
+}
+.chart .kelp {
+  fill: rgba(126, 156, 74, 0.6);
+}
+.chart .rock {
+  fill: rgba(236, 228, 206, 0.2);
+}
+.chart .route,
+.chart .chevron {
+  fill: none;
+  stroke: rgba(236, 228, 206, 0.8);
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.chart .route.optional {
+  stroke-dasharray: 5 5;
+  stroke: rgba(236, 228, 206, 0.6);
+}
+.chart .clue {
+  fill: var(--gold);
+}
+.chart .station line {
+  stroke: var(--gold);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+}
+.chart .station circle {
+  fill: var(--gold);
+  stroke: #0b151c;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+.chart .station .label {
+  font-size: 2.8px;
+  font-style: italic;
+  fill: var(--gold);
+  text-anchor: start;
+}
+.chart .beat circle {
+  fill: #0b151c;
+  stroke: var(--gold);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+.chart .beat.optional circle {
+  stroke-dasharray: 2 2;
+}
+.chart .beat .n {
+  font-size: 2.9px;
+  font-weight: 600;
+  fill: var(--gold);
+  stroke: none;
+}
+.chart .beat .label {
+  font-size: 3.6px;
+  font-weight: 600;
+}
+.chart .beat .sub {
+  font-size: 2.7px;
+  font-style: italic;
+  fill: rgba(236, 228, 206, 0.7);
+}
+.chart .beat.here circle {
+  fill: var(--gold);
+  stroke: var(--paper);
+}
+.chart .beat.here .n {
+  fill: #0b151c;
+}
+.chart .beat.here .label {
+  fill: var(--gold);
+}
+.chart-marks {
+  position: absolute;
+  inset: 0;
+}
+.chart-diver {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.chart-diver .dot {
+  position: absolute;
+  left: -5px;
+  top: -5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--suit);
+  border: 1.5px solid var(--paper);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
+}
+.chart-diver .heading {
+  position: absolute;
+  left: -4px;
+  top: -14px;
+  border: 4px solid transparent;
+  border-bottom: 6px solid var(--paper);
+  border-top: 0;
+  transform-origin: 4px 14px;
+  transform: rotate(var(--heading, 0rad));
+}
+.chart-diver.aboard .heading {
+  display: none;
+}
+.chart-diver.you .dot {
+  animation: chart-you 1.2s ease-in-out infinite alternate;
+}
+.chart-diver.down .dot {
+  border-color: #e0714f;
+  animation: chart-you 0.5s ease-in-out infinite alternate;
+}
+.chart-diver .label {
+  position: absolute;
+  left: 9px;
+  top: -9px;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 600;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 0 8px rgba(0, 0, 0, 0.8);
+}
+.chart-diver.east .label {
+  left: auto;
+  right: 9px;
+}
+.chart-diver.you .label {
+  font-weight: 500;
+  font-style: italic;
+  color: rgba(236, 228, 206, 0.75);
+}
+@keyframes chart-you {
+  to {
+    box-shadow:
+      0 0 0 4px rgba(236, 228, 206, 0.25),
+      0 0 6px rgba(0, 0, 0, 0.9);
+  }
+}
+.chart-key {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 4px;
+  font-size: 14px;
+  font-style: italic;
+  color: rgba(236, 228, 206, 0.8);
+}
+.chart-key .kick {
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.chart-key b {
+  display: inline-block;
+  padding: 0 5px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  font-size: 0.86em;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.3;
+}

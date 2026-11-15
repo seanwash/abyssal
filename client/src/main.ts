@@ -11,6 +11,7 @@ import { lootReach } from "../../shared/loot/haul";
 import { ITEMS } from "../../shared/loot/items";
 import { stationReach } from "../../shared/station";
 import { buildLevel } from "../../shared/zones";
+import { Chart } from "./chart/chart";
 import { VIEWS } from "./creatures";
 import { DiverView } from "./diver";
 import {
@@ -204,6 +205,7 @@ const main = async () => {
   pipeline.outputNode = isoOutput(sceneColor);
 
   const hud = new Hud();
+  const chart = new Chart(level);
   const stationScreen = new StationScreen(() => net.dive());
   loader.step(`Hailing party ${PARTY}`, 0.06);
   await joining;
@@ -675,6 +677,7 @@ const main = async () => {
 
     pipeline.render();
     const target = updateAction(divers, me, creatures, loot, dt, t);
+    chart.update(divers);
     frames += 1;
     frameMs += (performance.now() - f0 - frameMs) * 0.1;
     hud.stats(net, frameMs);
