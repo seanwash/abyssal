@@ -1,15 +1,22 @@
-import * as THREE from 'three/webgpu';
-import { color, uniform } from 'three/tsl';
-import { rim, sphere } from './fight-kit';
+import { color, uniform } from "three/tsl";
+import * as THREE from "three/webgpu";
+
+import { rim, sphere } from "./fight-kit";
 
 export const fadeUniform = () => uniform(0);
-export interface Flash { mesh: THREE.Mesh; fade: ReturnType<typeof fadeUniform>; age: number }
+export interface Flash {
+  mesh: THREE.Mesh;
+  fade: ReturnType<typeof fadeUniform>;
+  age: number;
+}
 
 /** The flash that has been running longest, so it is the one to reuse. */
 export const oldest = (pool: Flash[]) => {
   let [best] = pool;
   for (const c of pool) {
-    if (c.age > best.age) {best = c;}
+    if (c.age > best.age) {
+      best = c;
+    }
   }
   return best;
 };
@@ -20,12 +27,25 @@ export class Pulses {
   private radius: number;
   private life: number;
 
-  constructor(objects: THREE.Object3D[], tint: number, count: number, radius: number, life: number, strength = 1.5) {
+  constructor(
+    objects: THREE.Object3D[],
+    tint: number,
+    count: number,
+    radius: number,
+    life: number,
+    strength = 1.5
+  ) {
     this.radius = radius;
     this.life = life;
     for (let i = 0; i < count; i += 1) {
       const fade = fadeUniform();
-      const mat = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, side: THREE.DoubleSide });
+      const mat = new THREE.MeshBasicNodeMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        fog: false,
+        side: THREE.DoubleSide,
+      });
       mat.colorNode = color(tint).mul(rim(1.2).mul(fade).mul(strength));
       const m = new THREE.Mesh(sphere, mat);
       m.visible = false;

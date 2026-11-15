@@ -1,18 +1,19 @@
-import { defineConfig } from 'vite';
-import { SERVER_PORT } from './shared/constants';
+import { defineConfig } from "vite";
+
+import { SERVER_PORT } from "./shared/constants";
 
 export default defineConfig({
-  root: 'client',
+  root: "client",
   server: {
-    host: '0.0.0.0',
+    host: "0.0.0.0",
     port: 5173,
     proxy: {
-      '/colyseus': {
+      "/colyseus": {
         target: `http://127.0.0.1:${SERVER_PORT}`,
         ws: true,
-        rewrite: (path) => path.replace(/^\/colyseus/u, ''),
+        rewrite: (path) => path.replace(/^\/colyseus/u, ""),
       },
     },
   },
-  build: { outDir: '../dist', emptyOutDir: true, target: 'es2022' },
+  build: { outDir: "../dist", emptyOutDir: true, target: "es2022" },
 });

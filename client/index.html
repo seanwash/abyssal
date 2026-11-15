@@ -7,43 +7,158 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Loaded without blocking the first paint, so the loading plate shows before the font arrives. -->
-    <link rel="preload" as="style" onload="this.rel = 'stylesheet'" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&display=swap" />
+    <link
+      rel="preload"
+      as="style"
+      onload="this.rel = 'stylesheet'"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&display=swap"
+    />
     <style>
-      html, body { margin: 0; height: 100%; background: #020b10; }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #020b10;
+      }
       #loader {
-        position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center;
-        background: radial-gradient(ellipse 60% 50% at 50% 46%, #0b2128, #020b10);
-        color: #ece4ce; font-family: 'Cormorant Garamond', 'Iowan Old Style', Georgia, serif; transition: opacity 0.6s ease-out;
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(
+          ellipse 60% 50% at 50% 46%,
+          #0b2128,
+          #020b10
+        );
+        color: #ece4ce;
+        font-family: "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
+        transition: opacity 0.6s ease-out;
       }
       /* The same frame as the in-game HUD's .hud-frame, so it stays put when the plate fades. */
-      .loader-frame { position: absolute; inset: 12px; border: 1px solid rgba(201, 162, 74, 0.32); }
-      .loader-frame::after { content: ''; position: absolute; inset: 3px; border: 1px solid rgba(201, 162, 74, 0.32); }
-      .loader-frame i { position: absolute; width: 7px; height: 7px; background: #0b151c; border: 1px solid rgba(201, 162, 74, 0.6); transform: rotate(45deg); }
-      .loader-frame i:nth-child(1) { left: -5px; top: -5px; }
-      .loader-frame i:nth-child(2) { right: -5px; top: -5px; }
-      .loader-frame i:nth-child(3) { left: -5px; bottom: -5px; }
-      .loader-frame i:nth-child(4) { right: -5px; bottom: -5px; }
+      .loader-frame {
+        position: absolute;
+        inset: 12px;
+        border: 1px solid rgba(201, 162, 74, 0.32);
+      }
+      .loader-frame::after {
+        content: "";
+        position: absolute;
+        inset: 3px;
+        border: 1px solid rgba(201, 162, 74, 0.32);
+      }
+      .loader-frame i {
+        position: absolute;
+        width: 7px;
+        height: 7px;
+        background: #0b151c;
+        border: 1px solid rgba(201, 162, 74, 0.6);
+        transform: rotate(45deg);
+      }
+      .loader-frame i:nth-child(1) {
+        left: -5px;
+        top: -5px;
+      }
+      .loader-frame i:nth-child(2) {
+        right: -5px;
+        top: -5px;
+      }
+      .loader-frame i:nth-child(3) {
+        left: -5px;
+        bottom: -5px;
+      }
+      .loader-frame i:nth-child(4) {
+        right: -5px;
+        bottom: -5px;
+      }
       /* The words go first, so they never sit over the station plate while the backdrop fades. */
-      #loader.done { opacity: 0; pointer-events: none; transition-delay: 0.15s; }
-      #loader.done > :not(.loader-frame) { opacity: 0; transition: opacity 0.2s; }
-      #loader > :not(.loader-frame) { animation: loader-in 0.6s ease-out backwards; }
-      .loader-kicker { font-size: 12px; font-weight: 600; letter-spacing: 0.24em; text-transform: uppercase; color: #c9a24a; }
-      .loader-title { font-size: 64px; font-weight: 500; line-height: 1; margin: 10px 0 4px; letter-spacing: 0.02em; }
-      .loader-sub { font-size: 18px; font-style: italic; color: rgba(236, 228, 206, 0.6); }
-      .loader-rule { position: relative; width: 240px; height: 1px; margin: 30px 0 14px; background: rgba(201, 162, 74, 0.22); }
-      .loader-rule i { position: absolute; inset: 0; background: #c9a24a; transform-origin: left; transform: scaleX(var(--p, 0.04)); transition: transform 0.35s ease-out; }
+      #loader.done {
+        opacity: 0;
+        pointer-events: none;
+        transition-delay: 0.15s;
+      }
+      #loader.done > :not(.loader-frame) {
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      #loader > :not(.loader-frame) {
+        animation: loader-in 0.6s ease-out backwards;
+      }
+      .loader-kicker {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        color: #c9a24a;
+      }
+      .loader-title {
+        font-size: 64px;
+        font-weight: 500;
+        line-height: 1;
+        margin: 10px 0 4px;
+        letter-spacing: 0.02em;
+      }
+      .loader-sub {
+        font-size: 18px;
+        font-style: italic;
+        color: rgba(236, 228, 206, 0.6);
+      }
+      .loader-rule {
+        position: relative;
+        width: 240px;
+        height: 1px;
+        margin: 30px 0 14px;
+        background: rgba(201, 162, 74, 0.22);
+      }
+      .loader-rule i {
+        position: absolute;
+        inset: 0;
+        background: #c9a24a;
+        transform-origin: left;
+        transform: scaleX(var(--p, 0.04));
+        transition: transform 0.35s ease-out;
+      }
       .loader-rule b {
-        position: absolute; left: -4px; top: -4px; width: 7px; height: 7px; border: 1px solid #c9a24a; background: #020b10;
-        transform: translateX(calc(var(--p, 0.04) * 240px)) rotate(45deg); transition: transform 0.35s ease-out;
+        position: absolute;
+        left: -4px;
+        top: -4px;
+        width: 7px;
+        height: 7px;
+        border: 1px solid #c9a24a;
+        background: #020b10;
+        transform: translateX(calc(var(--p, 0.04) * 240px)) rotate(45deg);
+        transition: transform 0.35s ease-out;
       }
       /* Only opacity and transform animate, so the glow keeps pulsing while the page is busy building shaders. */
       .loader-rule b::after {
-        content: ''; position: absolute; inset: -6px; background: radial-gradient(closest-side, rgba(255, 216, 144, 0.8), transparent);
+        content: "";
+        position: absolute;
+        inset: -6px;
+        background: radial-gradient(
+          closest-side,
+          rgba(255, 216, 144, 0.8),
+          transparent
+        );
         animation: loader-glow 1.2s ease-in-out infinite alternate;
       }
-      .loader-step { min-height: 1.4em; font-size: 17px; font-style: italic; color: rgba(236, 228, 206, 0.75); }
-      @keyframes loader-in { from { opacity: 0; } }
-      @keyframes loader-glow { from { opacity: 0.15; } }
+      .loader-step {
+        min-height: 1.4em;
+        font-size: 17px;
+        font-style: italic;
+        color: rgba(236, 228, 206, 0.75);
+      }
+      @keyframes loader-in {
+        from {
+          opacity: 0;
+        }
+      }
+      @keyframes loader-glow {
+        from {
+          opacity: 0.15;
+        }
+      }
     </style>
   </head>
   <body>

@@ -1,11 +1,12 @@
-import * as THREE from 'three/webgpu';
-import { color } from 'three/tsl';
-import { SHOCK_RADIUS } from '../../shared/creatures/drone';
-import { fadeUniform, oldest, Pulses } from './pulses';
-import type { Flash } from './pulses';
-import { Sparks } from './sparks';
+import { color } from "three/tsl";
+import * as THREE from "three/webgpu";
 
-export { ease, mesh, rim, sphere } from './fight-kit';
+import { SHOCK_RADIUS } from "../../shared/creatures/drone";
+import { fadeUniform, oldest, Pulses } from "./pulses";
+import type { Flash } from "./pulses";
+import { Sparks } from "./sparks";
+
+export { ease, mesh, rim, sphere } from "./fight-kit";
 
 /** Short-lived fight effects, pooled so nothing is created mid-fight. */
 export class Effects {
@@ -23,7 +24,12 @@ export class Effects {
     bolt.translate(0, 0.5, 0);
     for (let i = 0; i < 4; i += 1) {
       const fade = fadeUniform();
-      const mat = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+      const mat = new THREE.MeshBasicNodeMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        fog: false,
+      });
       mat.colorNode = color(0xff_f0_c8).mul(fade);
       const m = new THREE.Mesh(bolt, mat);
       m.visible = false;
@@ -36,7 +42,8 @@ export class Effects {
   /** The harpoon line from diver to machine, and sparks where it strikes. */
   harpoon(p: [number, number, number], q: [number, number, number]) {
     const b = oldest(this.bolts);
-    const from = new THREE.Vector3(...p); const dir = new THREE.Vector3(...q).sub(from);
+    const from = new THREE.Vector3(...p);
+    const dir = new THREE.Vector3(...q).sub(from);
     b.mesh.position.copy(from);
     b.mesh.scale.set(1, dir.length(), 1);
     b.mesh.quaternion.setFromUnitVectors(this.up, dir.normalize());
@@ -69,7 +76,15 @@ export class Effects {
   /** A find leaves the floor: a small ring and motes in its category's colour; `big` for a fossil pried free. */
   collect(p: ArrayLike<number>, tint: number, big = false) {
     this.finds.fire(p);
-    this.sparks.burst(p, big ? 44 : 16, tint, big ? 2.2 : 1.1, 0.6, big ? 1.8 : 1, big ? 0.05 : 0.035);
+    this.sparks.burst(
+      p,
+      big ? 44 : 16,
+      tint,
+      big ? 2.2 : 1.1,
+      0.6,
+      big ? 1.8 : 1,
+      big ? 0.05 : 0.035
+    );
   }
 
   /** Grit off a fossil while divers pry it. */

@@ -1,15 +1,50 @@
-import { FLOOR_BASE_Y, PLAY_HALF_X, PLAY_HALF_Z } from './constants';
-import { fbm2, mulberry32 } from './rng';
+import { FLOOR_BASE_Y, PLAY_HALF_X, PLAY_HALF_Z } from "./constants";
+import { fbm2, mulberry32 } from "./rng";
 
 /** A granite boulder: a vertical ellipsoid `r` wide and `r * sy` tall, centred at x, y, z. */
-export interface Boulder { x: number; y: number; z: number; r: number; sy: number; rot: number; seed: number }
-export interface Kelp { x: number; z: number; floorY: number; height: number; phase: number; lean: number }
-export interface Jelly { x: number; y: number; z: number; scale: number; phase: number; hero: boolean }
-export interface Point { x: number; y: number; z: number }
+export interface Boulder {
+  x: number;
+  y: number;
+  z: number;
+  r: number;
+  sy: number;
+  rot: number;
+  seed: number;
+}
+export interface Kelp {
+  x: number;
+  z: number;
+  floorY: number;
+  height: number;
+  phase: number;
+  lean: number;
+}
+export interface Jelly {
+  x: number;
+  y: number;
+  z: number;
+  scale: number;
+  phase: number;
+  hero: boolean;
+}
+export interface Point {
+  x: number;
+  y: number;
+  z: number;
+}
 /** Where a creature starts. `kind` names its module in `shared/creatures`; `route` is a loop to patrol, for creatures that patrol. */
-export interface CreatureSpawn { id: string; kind: string; at: Point; route?: Point[] }
+export interface CreatureSpawn {
+  id: string;
+  kind: string;
+  at: Point;
+  route?: Point[];
+}
 /** Where a find lies on the reef. `item` names its entry in `shared/loot/items.ts`. */
-export interface LootSpot { id: string; item: string; at: Point }
+export interface LootSpot {
+  id: string;
+  item: string;
+  at: Point;
+}
 
 export interface Level {
   seed: number;
@@ -33,10 +68,13 @@ export interface Level {
 const HOLLOW = { x0: -2, z0: -1, x1: -16, z1: -15, halfWidth: 9, depth: 6 };
 
 const hollowDepth = (x: number, z: number) => {
-  const ax = HOLLOW.x1 - HOLLOW.x0; const az = HOLLOW.z1 - HOLLOW.z0;
+  const ax = HOLLOW.x1 - HOLLOW.x0;
+  const az = HOLLOW.z1 - HOLLOW.z0;
   const len = Math.hypot(ax, az);
-  const ux = ax / len; const uz = az / len;
-  const px = x - HOLLOW.x0; const pz = z - HOLLOW.z0;
+  const ux = ax / len;
+  const uz = az / len;
+  const px = x - HOLLOW.x0;
+  const pz = z - HOLLOW.z0;
   const along = px * ux + pz * uz;
   const across = px * -uz + pz * ux;
   // Stretching the ends makes them ramp more gently than the sides.
@@ -64,16 +102,28 @@ const SLOT = Math.SQRT1_2;
 const creviceDepth = (x: number, z: number) => {
   let deepest = 0;
   for (const c of CREVICES) {
-    const px = x - c.x0; const pz = z - c.z0;
+    const px = x - c.x0;
+    const pz = z - c.z0;
     const along = (px + pz) * SLOT;
     const across = Math.abs(pz - px) * SLOT;
-    if (across >= c.halfWidth || along <= -c.halfWidth || along >= c.len + CREVICE_RAMP) {continue;}
+    if (
+      across >= c.halfWidth ||
+      along <= -c.halfWidth ||
+      along >= c.len + CREVICE_RAMP
+    ) {
+      continue;
+    }
     const d = Math.hypot(across, Math.min(0, along)) / c.halfWidth;
-    if (d >= 1) {continue;}
+    if (d >= 1) {
+      continue;
+    }
     // A flat bottom with steep walls, rising to the reef along the ramp.
     const k = Math.max(0, (d - 0.5) / 0.5);
     const r = Math.max(0, Math.min(1, (along - c.len) / CREVICE_RAMP));
-    deepest = Math.max(deepest, c.depth * (1 - k * k * (3 - 2 * k)) * (1 - r * r * (3 - 2 * r)));
+    deepest = Math.max(
+      deepest,
+      c.depth * (1 - k * k * (3 - 2 * k)) * (1 - r * r * (3 - 2 * r))
+    );
   }
   return deepest;
 };
@@ -83,30 +133,54 @@ export const floorHeight = (x: number, z: number): number => {
   const shore = Math.max(0, z - 4) * 0.28;
   const dunes = (fbm2(x * 0.08, z * 0.08, 4, 11) - 0.5) * 1.6;
   const ripples = Math.sin(x * 0.9 + Math.sin(z * 0.35) * 1.6) * 0.06;
-  return FLOOR_BASE_Y + shore + dunes + ripples - hollowDepth(x, z) - creviceDepth(x, z);
+  return (
+    FLOOR_BASE_Y +
+    shore +
+    dunes +
+    ripples -
+    hollowDepth(x, z) -
+    creviceDepth(x, z)
+  );
 };
 
 /** Collision half-heights and radii of a boulder, slightly inside the rendered rock. */
-export const boulderExtent = (b: Boulder) => ({ a: b.r * 0.92, c: b.r * b.sy * 0.92 });
+export const boulderExtent = (b: Boulder) => ({
+  a: b.r * 0.92,
+  c: b.r * b.sy * 0.92,
+});
 
 /** Height of the first surface straight below x, z: the top of a boulder there, or else the seafloor. */
-export const groundHeight = (level: Level, x: number, z: number, below = Infinity) => {
+export const groundHeight = (
+  level: Level,
+  x: number,
+  z: number,
+  below = Infinity
+) => {
   let y = floorHeight(x, z);
   for (const b of level.boulders) {
     const e = boulderExtent(b);
     const q = 1 - ((x - b.x) ** 2 + (z - b.z) ** 2) / (e.a * e.a);
-    if (q <= 0) {continue;}
+    if (q <= 0) {
+      continue;
+    }
     const top = b.y + e.c * Math.sqrt(q);
-    if (top > y && top < below) {y = top;}
+    if (top > y && top < below) {
+      y = top;
+    }
   }
   return y;
 };
 
-const spot = (id: string, item: string, x: number, z: number): LootSpot => ({ id, item, at: { x, y: floorHeight(x, z) + 0.08, z } });
+const spot = (id: string, item: string, x: number, z: number): LootSpot => ({
+  id,
+  item,
+  at: { x, y: floorHeight(x, z) + 0.08, z },
+});
 
 const CLEARINGS = [{ x: 0, z: 6, r: 3 }];
 
-const inClearing = (x: number, z: number, pad = 0) => CLEARINGS.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + pad);
+const inClearing = (x: number, z: number, pad = 0) =>
+  CLEARINGS.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + pad);
 
 /**
  * The test reef: a reef flat at about 8 m with a spawn on the shore side, the Hollow dropping to
@@ -116,14 +190,34 @@ const inClearing = (x: number, z: number, pad = 0) => CLEARINGS.some((c) => Math
 export const buildLevel = (seed = 7): Level => {
   const rnd = mulberry32(seed);
   const boulders: Boulder[] = [];
-  const rock = (x: number, z: number, r: number, sy: number, y = floorHeight(x, z) + r * sy * 0.35) => {
-    const b = { x, y, z, r, sy, rot: rnd() * Math.PI * 2, seed: Math.floor(rnd() * 1e6) };
+  const rock = (
+    x: number,
+    z: number,
+    r: number,
+    sy: number,
+    y = floorHeight(x, z) + r * sy * 0.35
+  ) => {
+    const b = {
+      x,
+      y,
+      z,
+      r,
+      sy,
+      rot: rnd() * Math.PI * 2,
+      seed: Math.floor(rnd() * 1e6),
+    };
     boulders.push(b);
     return b;
   };
   const onTop = (below: Boulder, r: number, sy: number, dx = 0, dz = 0) => {
-    const {c} = boulderExtent(below);
-    return rock(below.x + dx, below.z + dz, r, sy, below.y + c * 0.8 + r * sy * 0.5);
+    const { c } = boulderExtent(below);
+    return rock(
+      below.x + dx,
+      below.z + dz,
+      r,
+      sy,
+      below.y + c * 0.8 + r * sy * 0.5
+    );
   };
 
   // The pinnacle.
@@ -170,11 +264,24 @@ export const buildLevel = (seed = 7): Level => {
       const dist = Math.sqrt(rnd()) * g.r;
       const x = g.x + Math.cos(ang) * dist;
       const z = g.z + Math.sin(ang) * dist;
-      if (inClearing(x, z, 0.5)) {continue;}
-      if (boulders.some((b) => Math.hypot(b.x - x, b.z - z) < b.r * 0.95)) {continue;}
-      if (kelp.some((k) => Math.hypot(k.x - x, k.z - z) < 0.95)) {continue;}
+      if (inClearing(x, z, 0.5)) {
+        continue;
+      }
+      if (boulders.some((b) => Math.hypot(b.x - x, b.z - z) < b.r * 0.95)) {
+        continue;
+      }
+      if (kelp.some((k) => Math.hypot(k.x - x, k.z - z) < 0.95)) {
+        continue;
+      }
       const floorY = floorHeight(x, z);
-      kelp.push({ x, z, floorY, height: -floorY - 0.4 - rnd() * 1.5, phase: rnd() * Math.PI * 2, lean: rnd() * Math.PI * 2 });
+      kelp.push({
+        x,
+        z,
+        floorY,
+        height: -floorY - 0.4 - rnd() * 1.5,
+        phase: rnd() * Math.PI * 2,
+        lean: rnd() * Math.PI * 2,
+      });
       placed += 1;
     }
   }
@@ -218,24 +325,28 @@ export const buildLevel = (seed = 7): Level => {
     ],
     creatures: [
       // The lingcod guards its egg mass on the floor of the Hollow.
-      { id: 'lingcod', kind: 'lingcod', at: { x: -8.3, y: floorHeight(-8.3, -7), z: -7 } },
-      { id: 'drone', kind: 'drone', at: patrol[0], route: patrol },
+      {
+        id: "lingcod",
+        kind: "lingcod",
+        at: { x: -8.3, y: floorHeight(-8.3, -7), z: -7 },
+      },
+      { id: "drone", kind: "drone", at: patrol[0], route: patrol },
     ],
     loot: [
       // On open sand near the line, so the first find teaches bagging.
-      spot('urchin-flat', 'urchin-test', 3.5, 9),
-      spot('urchin-pinnacle', 'urchin-test', 12.8, -2.3),
+      spot("urchin-flat", "urchin-test", 3.5, 9),
+      spot("urchin-pinnacle", "urchin-test", 12.8, -2.3),
       // Low in the kelp groves.
-      spot('snail-grove', 'turban-snail', 7.2, 0.2),
-      spot('snail-north', 'turban-snail', 13.5, 10.5),
+      spot("snail-grove", "turban-snail", 7.2, 0.2),
+      spot("snail-north", "turban-snail", 13.5, 10.5),
       // Under the arch's cap.
-      spot('abalone-arch', 'abalone-shell', -9, 9.3),
+      spot("abalone-arch", "abalone-shell", -9, 9.3),
       // At the far ends of the crevices.
-      spot('star-crevice', 'sunflower-star', 14.15, -8.85),
-      spot('shells-crevice', 'capitola-shells', 16.25, -1.35),
-      spot('tooth-crevice', 'megalodon-tooth', -17.85, 2.15),
+      spot("star-crevice", "sunflower-star", 14.15, -8.85),
+      spot("shells-crevice", "capitola-shells", 16.25, -1.35),
+      spot("tooth-crevice", "megalodon-tooth", -17.85, 2.15),
       // On the floor of the Hollow, past the lingcod.
-      spot('bloom-hollow', 'bloom-sample', -11, -13.5),
+      spot("bloom-hollow", "bloom-sample", -11, -13.5),
     ],
     station: { x: 0, z: 7.2 },
   };

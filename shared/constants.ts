@@ -17,6 +17,6 @@ export const TURN_RESPONSE = 7;
 
 export const MAX_DIVERS = 2;
 export const SUITS = [
-  { name: 'Rust', color: 0xc4_62_2d },
-  { name: 'Teal', color: 0x2f_8f_8a },
+  { name: "Rust", color: 0xc4_62_2d },
+  { name: "Teal", color: 0x2f_8f_8a },
 ] as const;

@@ -1,21 +1,46 @@
-import * as THREE from 'three/webgpu';
 import {
-  abs, color, dot, float, normalView, oneMinus, positionViewDirection, pow, smoothstep, uniform, uv,
-  mx_noise_float, positionLocal,
-} from 'three/tsl';
-import { SUITS } from '../../shared/constants';
+  abs,
+  color,
+  dot,
+  float,
+  normalView,
+  oneMinus,
+  positionViewDirection,
+  pow,
+  smoothstep,
+  uniform,
+  uv,
+  mx_noise_float,
+  positionLocal,
+} from "three/tsl";
+import * as THREE from "three/webgpu";
+
+import { SUITS } from "../../shared/constants";
 
 const BUBBLES = 64;
 const RING = 12;
 const RING_RADIUS = 0.16;
 
 /** A suit material lit at its rim, which flashes warm while `hurt` is above zero. */
-const rimMaterial = (hurt: UniformFloat, base: THREE.ColorRepresentation, rim: THREE.ColorRepresentation, rough = 0.6, metal = 0) => {
-  const b = new THREE.Color(base); const r = new THREE.Color(rim);
-  const m = new THREE.MeshStandardNodeMaterial({ roughness: rough, metalness: metal });
+const rimMaterial = (
+  hurt: UniformFloat,
+  base: THREE.ColorRepresentation,
+  rim: THREE.ColorRepresentation,
+  rough = 0.6,
+  metal = 0
+) => {
+  const b = new THREE.Color(base);
+  const r = new THREE.Color(rim);
+  const m = new THREE.MeshStandardNodeMaterial({
+    roughness: rough,
+    metalness: metal,
+  });
   m.colorNode = color(b);
   const f = pow(oneMinus(abs(dot(normalView, positionViewDirection))), 3);
-  m.emissiveNode = color(r).mul(f).mul(0.9).add(color(0xff_7a_55).mul(hurt).mul(f.mul(2).add(0.45)));
+  m.emissiveNode = color(r)
+    .mul(f)
+    .mul(0.9)
+    .add(color(0xff_7a_55).mul(hurt).mul(f.mul(2).add(0.45)));
   return m;
 };
 
@@ -30,14 +55,20 @@ const finGeometry = () => {
   shape.quadraticCurveTo(0.05, -0.4, 0, -0.44);
   shape.quadraticCurveTo(-0.05, -0.4, -0.14, -0.46);
   shape.quadraticCurveTo(-0.17, -0.25, -0.07, 0);
-  const g = new THREE.ExtrudeGeometry(shape, { depth: 0.015, bevelEnabled: false });
+  const g = new THREE.ExtrudeGeometry(shape, {
+    depth: 0.015,
+    bevelEnabled: false,
+  });
   g.rotateX(-Math.PI / 2);
   g.translate(0, 0, 0.1);
   return g;
 };
 
 const glassMaterial = () => {
-  const m = new THREE.MeshStandardNodeMaterial({ roughness: 0.05, metalness: 0.2 });
+  const m = new THREE.MeshStandardNodeMaterial({
+    roughness: 0.05,
+    metalness: 0.2,
+  });
   const f = pow(oneMinus(abs(dot(normalView, positionViewDirection))), 2);
   m.colorNode = color(0x0b_1f_22);
   m.emissiveNode = color(0x9f_f3_e6).mul(f.mul(1.4).add(0.08));
@@ -45,7 +76,11 @@ const glassMaterial = () => {
 };
 
 const bubbleMaterial = () => {
-  const m = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+  const m = new THREE.MeshBasicNodeMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
   const f = pow(oneMinus(abs(dot(normalView, positionViewDirection))), 2.5);
   m.colorNode = color(0xdf_f7_f2).mul(f.mul(1.2).add(float(0.05)));
   return m;
@@ -64,7 +99,13 @@ export class DiverView {
   private lampIntensity: number;
   /** How much of the headlamp's strength is left after dimming for a wall in front, 0 to 1. */
   private glare = 1;
-  private bubbleState: { p: THREE.Vector3; v: number; age: number; life: number; s: number }[] = [];
+  private bubbleState: {
+    p: THREE.Vector3;
+    v: number;
+    age: number;
+    life: number;
+    s: number;
+  }[] = [];
   private nextBreath = 0;
   private kick = 0;
   private bank = 0;
@@ -78,30 +119,53 @@ export class DiverView {
   constructor(suit: number) {
     this.suit = suit;
     const suitColor = new THREE.Color(SUITS[suit]?.color ?? SUITS[0].color);
-    const neoprene = rimMaterial(this.hurtGlow, 0x1a_1f_22, suitColor.clone().multiplyScalar(1.4), 0.75);
+    const neoprene = rimMaterial(
+      this.hurtGlow,
+      0x1a_1f_22,
+      suitColor.clone().multiplyScalar(1.4),
+      0.75
+    );
     const panel = rimMaterial(this.hurtGlow, suitColor, suitColor, 0.55);
     const steel = rimMaterial(this.hurtGlow, 0xc9_c3_b0, 0x9f_d8_d0, 0.35, 0.7);
     const rubber = rimMaterial(this.hurtGlow, 0x11_14_16, 0x6a_8a_88, 0.8);
 
-    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.21, 0.62, 6, 16), neoprene);
+    const torso = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.21, 0.62, 6, 16),
+      neoprene
+    );
     torso.rotation.x = Math.PI / 2;
     torso.scale.set(1.1, 1, 0.85);
-    const stripe = new THREE.Mesh(new THREE.CapsuleGeometry(0.215, 0.36, 4, 16), panel);
+    const stripe = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.215, 0.36, 4, 16),
+      panel
+    );
     stripe.rotation.x = Math.PI / 2;
     stripe.scale.set(1.12, 1, 0.87);
     stripe.position.z = 0.1;
 
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 20, 14), neoprene);
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(0.15, 20, 14),
+      neoprene
+    );
     head.position.set(0, 0.04, 0.58);
-    const mask = new THREE.Mesh(new THREE.SphereGeometry(0.1, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.42), glassMaterial());
+    const mask = new THREE.Mesh(
+      new THREE.SphereGeometry(0.1, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.42),
+      glassMaterial()
+    );
     mask.rotation.x = Math.PI / 2 + 0.45;
     mask.position.set(0, 0, 0.66);
     mask.scale.set(1.25, 1, 0.8);
 
-    const tank = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.5, 4, 14), steel);
+    const tank = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.1, 0.5, 4, 14),
+      steel
+    );
     tank.rotation.x = Math.PI / 2;
     tank.position.set(0, 0.24, 0);
-    const valve = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.12, 10), steel);
+    const valve = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.035, 0.035, 0.12, 10),
+      steel
+    );
     valve.position.set(0, 0.26, 0.36);
     valve.rotation.x = Math.PI / 2;
 
@@ -110,10 +174,21 @@ export class DiverView {
     for (const side of [-1, 1]) {
       const leg = new THREE.Group();
       leg.position.set(side * 0.1, 0, -0.38);
-      const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.075, 0.42, 4, 10), neoprene);
+      const thigh = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.075, 0.42, 4, 10),
+        neoprene
+      );
       thigh.rotation.x = Math.PI / 2;
       thigh.position.z = -0.26;
-      const fin = new THREE.Mesh(finGeometry(), rimMaterial(this.hurtGlow, suitColor.clone().multiplyScalar(0.55), suitColor, 0.5));
+      const fin = new THREE.Mesh(
+        finGeometry(),
+        rimMaterial(
+          this.hurtGlow,
+          suitColor.clone().multiplyScalar(0.55),
+          suitColor,
+          0.5
+        )
+      );
       fin.position.z = -0.52;
       leg.add(thigh, fin);
       this.legs.push(leg);
@@ -121,10 +196,16 @@ export class DiverView {
 
       const arm = new THREE.Group();
       arm.position.set(side * 0.24, 0.02, 0.3);
-      const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.38, 4, 10), neoprene);
+      const upper = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.055, 0.38, 4, 10),
+        neoprene
+      );
       upper.rotation.x = Math.PI / 2;
       upper.position.z = -0.18;
-      const glove = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), rubber);
+      const glove = new THREE.Mesh(
+        new THREE.SphereGeometry(0.055, 10, 8),
+        rubber
+      );
       glove.position.z = -0.4;
       arm.add(upper, glove);
       arm.rotation.set(0, side * 0.18, 0);
@@ -145,10 +226,18 @@ export class DiverView {
     this.bubbles = new THREE.InstancedMesh(
       new THREE.SphereGeometry(1, 10, 8),
       bubbleMaterial(),
-      BUBBLES,
+      BUBBLES
     );
     this.bubbles.frustumCulled = false;
-    for (let i = 0; i < BUBBLES; i += 1) {this.bubbleState.push({ p: new THREE.Vector3(0, -999, 0), v: 0, age: 9, life: 1, s: 0 });}
+    for (let i = 0; i < BUBBLES; i += 1) {
+      this.bubbleState.push({
+        p: new THREE.Vector3(0, -999, 0),
+        v: 0,
+        age: 9,
+        life: 1,
+        s: 0,
+      });
+    }
   }
 
   /** Bubbles and the plumb line live in world space, so they stay vertical while the diver moves on. */
@@ -161,7 +250,11 @@ export class DiverView {
    * because adding or removing a light recompiles every lit material and stalls a frame.
    */
   setPresent(present: boolean) {
-    for (const c of this.body.children) {if (c !== this.lamp && c !== this.lamp.target) {c.visible = present;}}
+    for (const c of this.body.children) {
+      if (c !== this.lamp && c !== this.lamp.target) {
+        c.visible = present;
+      }
+    }
     this.lamp.intensity = present ? this.lampIntensity : 0;
     this.bubbles.visible = present;
     this.plumb.visible = present;
@@ -180,7 +273,16 @@ export class DiverView {
    * and its lamp dims. The headlamp also dims when ground or rock rises right in front, such as a
    * crevice's end wall, which it would otherwise light to a white glare.
    */
-  update(dt: number, t: number, pos: THREE.Vector3, yaw: number, vel: THREE.Vector3, ground: number, down = false, ahead = -Infinity) {
+  update(
+    dt: number,
+    t: number,
+    pos: THREE.Vector3,
+    yaw: number,
+    vel: THREE.Vector3,
+    ground: number,
+    down = false,
+    ahead = -Infinity
+  ) {
     this.root.position.copy(pos);
     this.updatePlumb(pos, ground);
     const speed = Math.hypot(vel.x, vel.z);
@@ -194,9 +296,13 @@ export class DiverView {
     this.hurtGlow.value *= Math.exp(-5 * dt);
     this.jolt *= Math.exp(-7 * dt);
     const shudder = Math.sin(t * 55) * this.jolt * 0.35;
-    this.body.rotation.set(this.pitch + shudder * 0.5, 0, THREE.MathUtils.clamp(this.bank, -0.5, 0.5) + this.roll + shudder);
+    this.body.rotation.set(
+      this.pitch + shudder * 0.5,
+      0,
+      THREE.MathUtils.clamp(this.bank, -0.5, 0.5) + this.roll + shudder
+    );
     const wall = THREE.MathUtils.clamp((ahead - (pos.y - 0.4)) / 1, 0, 1);
-    this.glare += ((1 - 0.8 * wall) - this.glare) * (1 - Math.exp(-6 * dt));
+    this.glare += (1 - 0.8 * wall - this.glare) * (1 - Math.exp(-6 * dt));
     this.lamp.intensity = this.lampIntensity * (down ? 0.2 : this.glare);
     this.lampStrength.value = down ? 0.2 : 1;
     this.body.position.y = Math.sin(t * 1.1) * 0.04;
@@ -206,7 +312,9 @@ export class DiverView {
     const amp = 0.12 + effort * 0.32;
     this.legs[0].rotation.x = Math.sin(this.kick) * amp;
     this.legs[1].rotation.x = Math.sin(this.kick + Math.PI) * amp;
-    for (const [i, arm] of this.arms.entries()) {arm.rotation.x = Math.sin(t * 0.8 + i) * 0.05;}
+    for (const [i, arm] of this.arms.entries()) {
+      arm.rotation.x = Math.sin(t * 0.8 + i) * 0.05;
+    }
 
     this.updateBubbles(dt, t);
   }
@@ -238,26 +346,47 @@ export class DiverView {
 
   /** Releases up to `count` bubbles from the regulator; `force` above 1 spreads them wider and faster. */
   exhale(count: number, force: number) {
-    const mouth = new THREE.Vector3(0, 0.05, 0.66).applyMatrix4(this.body.matrixWorld);
+    const mouth = new THREE.Vector3(0, 0.05, 0.66).applyMatrix4(
+      this.body.matrixWorld
+    );
     const spread = 0.15 * force;
     let spawned = 0;
     for (const b of this.bubbleState) {
-      if (b.age < b.life) {continue;}
-      b.p.copy(mouth).add(new THREE.Vector3((Math.random() - 0.5) * spread, Math.random() * 0.1 * force, (Math.random() - 0.5) * spread));
+      if (b.age < b.life) {
+        continue;
+      }
+      b.p
+        .copy(mouth)
+        .add(
+          new THREE.Vector3(
+            (Math.random() - 0.5) * spread,
+            Math.random() * 0.1 * force,
+            (Math.random() - 0.5) * spread
+          )
+        );
       b.v = (0.9 + Math.random() * 0.8) * force;
-      b.age = -spawned * 0.035 / force;
+      b.age = (-spawned * 0.035) / force;
       b.life = 3 + Math.random() * 2;
       b.s = 0.018 + Math.random() * Math.random() * 0.06;
       spawned += 1;
-      if (spawned >= count) {break;}
+      if (spawned >= count) {
+        break;
+      }
     }
   }
 
   /** A faint vertical line from the diver to the ground with a small ring where it lands, so height reads in the isometric view. */
   private plumbLine() {
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array((2 + RING * 2) * 3), 3));
-    const mat = new THREE.LineBasicNodeMaterial({ transparent: true, depthWrite: false, fog: false });
+    geo.setAttribute(
+      "position",
+      new THREE.BufferAttribute(new Float32Array((2 + RING * 2) * 3), 3)
+    );
+    const mat = new THREE.LineBasicNodeMaterial({
+      transparent: true,
+      depthWrite: false,
+      fog: false,
+    });
     mat.colorNode = color(0xd8_ef_e6);
     mat.opacityNode = this.plumbOpacity;
     const line = new THREE.LineSegments(geo, mat);
@@ -273,9 +402,20 @@ export class DiverView {
     a.setXYZ(0, pos.x, pos.y - 0.2, pos.z);
     a.setXYZ(1, pos.x, y, pos.z);
     for (let i = 0; i < RING; i += 1) {
-      const a0 = (i / RING) * Math.PI * 2; const a1 = ((i + 1) / RING) * Math.PI * 2;
-      a.setXYZ(2 + i * 2, pos.x + Math.cos(a0) * RING_RADIUS, y, pos.z + Math.sin(a0) * RING_RADIUS);
-      a.setXYZ(3 + i * 2, pos.x + Math.cos(a1) * RING_RADIUS, y, pos.z + Math.sin(a1) * RING_RADIUS);
+      const a0 = (i / RING) * Math.PI * 2;
+      const a1 = ((i + 1) / RING) * Math.PI * 2;
+      a.setXYZ(
+        2 + i * 2,
+        pos.x + Math.cos(a0) * RING_RADIUS,
+        y,
+        pos.z + Math.sin(a0) * RING_RADIUS
+      );
+      a.setXYZ(
+        3 + i * 2,
+        pos.x + Math.cos(a1) * RING_RADIUS,
+        y,
+        pos.z + Math.sin(a1) * RING_RADIUS
+      );
     }
     a.needsUpdate = true;
   }
@@ -285,17 +425,29 @@ export class DiverView {
     const g = new THREE.ConeGeometry(Math.tan(0.42) * len, len, 32, 1, true);
     g.translate(0, -len / 2, 0);
     g.rotateX(-Math.PI / 2 + 0.33);
-    const m = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false });
+    const m = new THREE.MeshBasicNodeMaterial({
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      fog: false,
+    });
     const along = uv().y;
-    const edge = pow(oneMinus(abs(dot(normalView, positionViewDirection))), 1.2);
+    const edge = pow(
+      oneMinus(abs(dot(normalView, positionViewDirection))),
+      1.2
+    );
     const motes = mx_noise_float(positionLocal.mul(2.4)).mul(0.25).add(0.85);
     const fall = pow(along, 2.2).mul(oneMinus(smoothstep(0.92, 1, along)));
     m.colorNode = color(0xff_f0_cc);
-    m.opacityNode = fall.mul(oneMinus(edge)).mul(motes).mul(0.12).mul(this.lampStrength);
+    m.opacityNode = fall
+      .mul(oneMinus(edge))
+      .mul(motes)
+      .mul(0.12)
+      .mul(this.lampStrength);
     const cone = new THREE.Mesh(g, m);
     cone.position.set(0, 0.12, 0.72);
     cone.renderOrder = 5;
     return cone;
   }
-
 }

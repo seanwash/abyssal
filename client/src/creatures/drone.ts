@@ -1,10 +1,11 @@
-import * as THREE from 'three/webgpu';
-import { color, float, mix, oneMinus, uniform } from 'three/tsl';
-import type { Fx } from '../../../shared/arena';
-import { DRONE } from '../../../shared/creatures/drone';
-import { ease, mesh, rim, sphere } from '../fight';
-import type { CreatureSnapshot } from '../net';
-import type { CreatureView } from '.';
+import { color, float, mix, oneMinus, uniform } from "three/tsl";
+import * as THREE from "three/webgpu";
+
+import type { CreatureView } from ".";
+import type { Fx } from "../../../shared/arena";
+import { DRONE } from "../../../shared/creatures/drone";
+import { ease, mesh, rim, sphere } from "../fight";
+import type { CreatureSnapshot } from "../net";
 
 /**
  * The operator's survey drone, drawn as a brass-and-iron engineering plate: a riveted hull, two
@@ -23,20 +24,35 @@ export class DroneView implements CreatureView {
   private spin = 0;
 
   constructor() {
-    this.root.rotation.order = 'YXZ';
-    const brass = new THREE.MeshStandardNodeMaterial({ metalness: 0.85, roughness: 0.38 });
+    this.root.rotation.order = "YXZ";
+    const brass = new THREE.MeshStandardNodeMaterial({
+      metalness: 0.85,
+      roughness: 0.38,
+    });
     brass.colorNode = mix(color(0xb3_8a_3c), color(0x3a_30_24), this.wreck);
-    brass.emissiveNode = color(0xff_f2_d8).mul(this.hit.mul(rim(0.8).add(0.6)))
+    brass.emissiveNode = color(0xff_f2_d8)
+      .mul(this.hit.mul(rim(0.8).add(0.6)))
       .add(color(0x7f_e0_ff).mul(this.charge.mul(rim(1.5)).mul(2.2)))
       .add(color(0x5a_44_20).mul(rim(3).mul(oneMinus(this.wreck)).mul(0.5)));
-    const iron = new THREE.MeshStandardNodeMaterial({ metalness: 0.7, roughness: 0.55 });
+    const iron = new THREE.MeshStandardNodeMaterial({
+      metalness: 0.7,
+      roughness: 0.55,
+    });
     iron.colorNode = color(0x2e_2f_30);
     const lens = new THREE.MeshBasicNodeMaterial({ fog: false });
     lens.colorNode = color(0xff_3a_20).mul(this.lens).add(float(0.02));
 
     const hull = new THREE.CylinderGeometry(0.26, 0.26, 0.7, 16);
     hull.rotateX(Math.PI / 2);
-    const nose = new THREE.SphereGeometry(0.26, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+    const nose = new THREE.SphereGeometry(
+      0.26,
+      16,
+      10,
+      0,
+      Math.PI * 2,
+      0,
+      Math.PI / 2
+    );
     nose.rotateX(Math.PI / 2);
     const tail = new THREE.ConeGeometry(0.26, 0.3, 16);
     tail.rotateX(-Math.PI / 2);
@@ -47,7 +63,7 @@ export class DroneView implements CreatureView {
       mesh(tail, iron, [0, 0, -0.5]),
       mesh(band, iron, [0, 0, 0.2]),
       mesh(band, iron, [0, 0, -0.2]),
-      mesh(sphere, lens, [0, 0.02, 0.6], [0.08, 0.08, 0.04]),
+      mesh(sphere, lens, [0, 0.02, 0.6], [0.08, 0.08, 0.04])
     );
     const duct = new THREE.TorusGeometry(0.15, 0.025, 6, 18);
     const blade = new THREE.BoxGeometry(0.26, 0.03, 0.01);
@@ -55,9 +71,19 @@ export class DroneView implements CreatureView {
       const r = new THREE.Group();
       r.position.set(side * 0.45, 0, -0.1);
       const blades = new THREE.Group();
-      blades.add(mesh(blade, iron, [0, 0, 0]), mesh(blade, iron, [0, 0, 0], [1, 1, 1]).rotateZ(Math.PI / 2));
+      blades.add(
+        mesh(blade, iron, [0, 0, 0]),
+        mesh(blade, iron, [0, 0, 0], [1, 1, 1]).rotateZ(Math.PI / 2)
+      );
       r.add(mesh(duct, brass, [0, 0, 0]), blades);
-      this.body.add(r, mesh(new THREE.BoxGeometry(0.2, 0.04, 0.06), iron, [side * 0.3, 0, -0.1]));
+      this.body.add(
+        r,
+        mesh(new THREE.BoxGeometry(0.2, 0.04, 0.06), iron, [
+          side * 0.3,
+          0,
+          -0.1,
+        ])
+      );
       this.rotors.push(blades);
     }
     this.root.add(this.body);
@@ -69,21 +95,37 @@ export class DroneView implements CreatureView {
     const wrecked = s.mode === DRONE.wrecked;
     this.wreck.value += ((wrecked ? 1 : 0) - this.wreck.value) * ease(dt, 3);
     const charging = s.mode === DRONE.charge;
-    this.charge.value = charging ? s.charge : this.charge.value * Math.exp(-6 * dt);
+    this.charge.value = charging
+      ? s.charge
+      : this.charge.value * Math.exp(-6 * dt);
     const alert = s.mode === DRONE.hunt || charging;
-    if (wrecked) {this.lens.value = 0;} else {this.lens.value = alert ? 1.6 + Math.sin(t * 14) * 0.4 : 0.8;}
+    if (wrecked) {
+      this.lens.value = 0;
+    } else {
+      this.lens.value = alert ? 1.6 + Math.sin(t * 14) * 0.4 : 0.8;
+    }
     this.spin += dt * (wrecked ? 0 : 30);
-    for (const r of this.rotors) {r.rotation.z = this.spin;}
+    for (const r of this.rotors) {
+      r.rotation.z = this.spin;
+    }
     this.hit.value *= Math.exp(-12 * dt);
     this.jolt *= Math.exp(-9 * dt);
     const j = (charging ? s.charge * 0.03 : 0) + this.jolt * 0.08;
-    this.body.position.set((Math.random() - 0.5) * j, Math.sin(t * 2.3) * 0.05 + (Math.random() - 0.5) * j, -this.jolt * 0.15);
-    this.body.rotation.z = (wrecked ? 0.7 : Math.sin(t * 1.7) * 0.06) + Math.sin(t * 50) * this.jolt * 0.25;
+    this.body.position.set(
+      (Math.random() - 0.5) * j,
+      Math.sin(t * 2.3) * 0.05 + (Math.random() - 0.5) * j,
+      -this.jolt * 0.15
+    );
+    this.body.rotation.z =
+      (wrecked ? 0.7 : Math.sin(t * 1.7) * 0.06) +
+      Math.sin(t * 50) * this.jolt * 0.25;
   }
 
   react(f: Fx) {
-    if (f.k !== 'harpoon' && f.k !== 'wrecked') {return;}
-    this.hit.value = f.k === 'wrecked' ? 2.5 : 1.4;
+    if (f.k !== "harpoon" && f.k !== "wrecked") {
+      return;
+    }
+    this.hit.value = f.k === "wrecked" ? 2.5 : 1.4;
     this.jolt = 1;
   }
 }

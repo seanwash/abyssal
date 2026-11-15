@@ -1,6 +1,8 @@
 {
   "name": "abyssal",
   "version": "1.0.0",
+  "private": true,
+  "type": "module",
   "scripts": {
     "dev": "concurrently -k -n server,client -c cyan,magenta \"npm:server\" \"npm:client\"",
     "server": "tsx watch server/index.ts",
@@ -13,6 +15,13 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "bots": "tsx bots/record.ts"
+  },
+  "dependencies": {
+    "@colyseus/schema": "^5.0.48",
+    "@colyseus/sdk": "^0.18.10",
+    "@colyseus/ws-transport": "^0.18.5",
+    "colyseus": "^0.18.12",
+    "three": "^0.187.0"
   },
   "devDependencies": {
     "@sparticuz/chromium": "^153.0.0",
@@ -27,14 +36,5 @@
     "typescript": "^7.0.2",
     "ultracite": "^8.2.1",
     "vite": "^8.3.8"
-  },
-  "dependencies": {
-    "@colyseus/schema": "^5.0.48",
-    "@colyseus/sdk": "^0.18.10",
-    "@colyseus/ws-transport": "^0.18.5",
-    "colyseus": "^0.18.12",
-    "three": "^0.187.0"
-  },
-  "private": true,
-  "type": "module"
+  }
 }

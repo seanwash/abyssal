@@ -1,7 +1,6 @@
 # Abyssal: rendering and multiplayer spike
 
-A kelp forest off Cannery Row with a glowing Pacific sea nettle, and two divers who see each
-other move under an authoritative server.
+A kelp forest off Cannery Row with a glowing Pacific sea nettle, and two divers who see each other move under an authoritative server.
 
 ## Run it
 
@@ -12,50 +11,21 @@ npm install
 npm run dev
 ```
 
-This starts the dive server on port 2567 and the game on port 5173. Open
-`http://localhost:5173` on this computer. On a second device on the same wifi, open
-`http://<this computer's IP>:5173` (Vite prints the Network address).
+This starts the dive server on port 2567 and the game on port 5173. Open `http://localhost:5173` on this computer. On a second device on the same wifi, open `http://<this computer's IP>:5173` (Vite prints the Network address).
 
-Opening the game without a party code starts a new party and puts its code in the address bar,
-for example `?party=KQTD`. **Copy invite link** in the bottom-right card copies a link to the same
-party; whoever opens it joins your dive. A party holds two divers.
+Opening the game without a party code starts a new party and puts its code in the address bar, for example `?party=KQTD`. **Copy invite link** in the bottom-right card copies a link to the same party; whoever opens it joins your dive. A party holds two divers.
 
-If a tab reloads, a laptop sleeps or the connection drops, the tab rejoins on its own and gets its
-diver back where it was. The server holds a dropped diver's seat for 15 minutes. Each tab or window
-is its own diver, so two windows on one computer make a party of two.
+If a tab reloads, a laptop sleeps or the connection drops, the tab rejoins on its own and gets its diver back where it was. The server holds a dropped diver's seat for 15 minutes. Each tab or window is its own diver, so two windows on one computer make a party of two.
 
-Controls: **WASD** or the arrow keys swim, **Space** or **E** rises, **Shift** or **Q** sinks. **F** or **Enter** acts on
-the nearest thing in front of you: hold it to calm the lingcod, buddy-breathe a downed diver or bag a find, press it to
-harpoon the drone, climb out at the station's line or dive again. **Alt** shows the labels of every find your lamp
-reaches. **B** seats a bot buddy in the empty second seat, or removes it. **M** mutes the sound. A gamepad works too
-(left stick, X or right trigger to act).
+Controls: **WASD** or the arrow keys swim, **Space** or **E** rises, **Shift** or **Q** sinks. **F** or **Enter** acts on the nearest thing in front of you: hold it to calm the lingcod, buddy-breathe a downed diver or bag a find, press it to harpoon the drone, climb out at the station's line or dive again. **Alt** shows the labels of every find your lamp reaches. **B** seats a bot buddy in the empty second seat, or removes it. **M** mutes the sound. A gamepad works too (left stick, X or right trigger to act).
 
-The dive is a small test reef: a reef flat at about 8 m, a sand channel (the Hollow) dropping to about 14 m,
-a boulder pinnacle that rises to within 2 m of the surface, and an arch to swim under. Each diver's lamp
-lights by 3D distance, so the floor only shows when you swim down to it. A shadow and a plumb line under
-each diver show its height above the ground.
+The dive is a small test reef: a reef flat at about 8 m, a sand channel (the Hollow) dropping to about 14 m, a boulder pinnacle that rises to within 2 m of the surface, and an arch to swim under. Each diver's lamp lights by 3D distance, so the floor only shows when you swim down to it. A shadow and a plumb line under each diver show its height above the ground.
 
-**The first fight.** A sick lingcod guards its egg mass on the floor of the Hollow and lunges at divers who come close;
-it glows violet until you calm it, and it can only be calmed between lunges. A survey drone patrols midwater around the
-pinnacle, hunts divers it can see and charges an electric shock. Air drains faster the deeper you are and refills at
-the surface; bites and shocks cost air. A diver out of air sinks until the other diver holds the action key beside
-them. Calm the lingcod and wreck the drone to clear the reef; it resets after a short pause, or straight away if both
-divers are down.
+**The first fight.** A sick lingcod guards its egg mass on the floor of the Hollow and lunges at divers who come close; it glows violet until you calm it, and it can only be calmed between lunges. A survey drone patrols midwater around the pinnacle, hunts divers it can see and charges an electric shock. Air drains faster the deeper you are and refills at the surface; bites and shocks cost air. A diver out of air sinks until the other diver holds the action key beside them. Calm the lingcod and wreck the drone to clear the reef; it resets after a short pause, or straight away if both divers are down.
 
-**Bag, surface, come back tomorrow.** Each diver starts the evening at the field station, the dive's town, with the
-party's shelf of everything logged so far, and dives from there. Finds lie on the reef with their Latin names on the
-ground, coloured by kind the way Diablo II colours items: specimens plain, water samples blue, fossils green, evidence
-gold. Some lie in the open; the rest are low in the kelp, under the arch, on the floor of the Hollow past the lingcod,
-and at the far ends of three crevices you have to swim down into. Holding the action key on a find bags it, six to a
-bag. A fossil takes both divers holding the key on it at once to pry free (the bot buddy helps). The wrecked drone
-drops a housing with a maker's mark. Finds count once a diver climbs out at the station's line, the float with the
-lantern near the start, which logs and saves them. A bag that is never logged is lost if both divers go down, and its
-finds go back where they lay. Logged fossils and evidence are gone from the reef for good; specimens and samples grow
-back when the reef resets.
+**Bag, surface, come back tomorrow.** Each diver starts the evening at the field station, the dive's town, with the party's shelf of everything logged so far, and dives from there. Finds lie on the reef with their Latin names on the ground, coloured by kind the way Diablo II colours items: specimens plain, water samples blue, fossils green, evidence gold. Some lie in the open; the rest are low in the kelp, under the arch, on the floor of the Hollow past the lingcod, and at the far ends of three crevices you have to swim down into. Holding the action key on a find bags it, six to a bag. A fossil takes both divers holding the key on it at once to pry free (the bot buddy helps). The wrecked drone drops a housing with a maker's mark. Finds count once a diver climbs out at the station's line, the float with the lantern near the start, which logs and saves them. A bag that is never logged is lost if both divers go down, and its finds go back where they lay. Logged fossils and evidence are gone from the reef for good; specimens and samples grow back when the reef resets.
 
-The save is one file per party code, written each time a diver logs finds: in the deployment's data directory on an
-Amp Box (`$AMP_DEPLOYMENT_DATA_DIRECTORY/saves`), which survives deploys and restarts, and in `./saves` otherwise
-(`ABYSSAL_SAVES` picks another folder). Coming back with the same party link picks up the same log.
+The save is one file per party code, written each time a diver logs finds: in the deployment's data directory on an Amp Box (`$AMP_DEPLOYMENT_DATA_DIRECTORY/saves`), which survives deploys and restarts, and in `./saves` otherwise (`ABYSSAL_SAVES` picks another folder). Coming back with the same party link picks up the same log.
 
 Useful URL options:
 
@@ -80,9 +50,7 @@ npm run build   # the client into dist/, the server into build/server.mjs
 npm start       # serves both on $PORT (default 2567)
 ```
 
-One process serves the built client and the dive server's websocket on one port, so the game is
-one link. `build/server.mjs` bundles the server's dependencies and needs only `dist/` beside it.
-`.amp/box.yaml` deploys it to an Amp Box with `amp boxes deploy`.
+One process serves the built client and the dive server's websocket on one port, so the game is one link. `build/server.mjs` bundles the server's dependencies and needs only `dist/` beside it. `.amp/box.yaml` deploys it to an Amp Box with `amp boxes deploy`.
 
 ## Check it
 
@@ -98,28 +66,22 @@ Fix what the linter reports rather than turning its rules off.
 
 ## Bots
 
-`npm run bots` opens two separate browsers against a running `npm run dev`, swims both divers
-with real key presses, and saves screenshots and one video per client in `bots/out`.
+`npm run bots` opens two separate browsers against a running `npm run dev`, swims both divers with real key presses, and saves screenshots and one video per client in `bots/out`.
 
 ```bash
 npx playwright install chromium   # once
 npm run bots
 ```
 
-Without a GPU (CI, cloud boxes) use the bundled software-rendered Chromium and slow the key
-presses down to match its frame rate:
+Without a GPU (CI, cloud boxes) use the bundled software-rendered Chromium and slow the key presses down to match its frame rate:
 
 ```bash
 BROWSER=sparticuz PACE=4 W=800 H=450 QS='&scale=0.5' npm run bots
 ```
 
-`bots/smoke.ts` checks the server alone: party rooms, input acknowledgement, a full party, and a
-dropped diver rejoining its own seat and position (`npx tsx bots/smoke.ts`; set `SERVER_URL` to
-check another server).
+`bots/smoke.ts` checks the server alone: party rooms, input acknowledgement, a full party, and a dropped diver rejoining its own seat and position (`npx tsx bots/smoke.ts`; set `SERVER_URL` to check another server).
 
-`bots/save.ts` checks bagging, prying with the bot buddy, logging at the station and the save against the built server,
-run the way a Box runs it: it stops the server, starts a second read-only release on the same data directory, and
-checks the party's log and the reef are as they were (`npm run build && npx tsx bots/save.ts`).
+`bots/save.ts` checks bagging, prying with the bot buddy, logging at the station and the save against the built server, run the way a Box runs it: it stops the server, starts a second read-only release on the same data directory, and checks the party's log and the reef are as they were (`npm run build && npx tsx bots/save.ts`).
 
 ## How it fits together
 
@@ -135,7 +97,7 @@ checks the party's log and the reef are as they were (`npm run build && npx tsx 
 | `client/src/creatures/` | One file per creature's look, registered by kind in `index.ts` |
 | `client/src/fight.ts` | Fight effects (harpoon line, shock, the calm release), built from `sparks.ts`, `pulses.ts` (soothing ripples and flashes) and the drawing helpers in `fight-kit.ts` that the creature views share |
 | `client/src/sound.ts` | Fight sounds synthesised with Web Audio, so they add nothing to the download |
-| `client/src/nettle.ts` | Procedural *Chrysaora fuscescens*: scalloped bell, oral arms, tentacles, pulse |
+| `client/src/nettle.ts` | Procedural _Chrysaora fuscescens_: scalloped bell, oral arms, tentacles, pulse |
 | `client/src/env.ts` | Seafloor with caustics, granite boulders, giant kelp, scatter, light shafts, marine snow |
 | `client/src/diver.ts` | Procedural diver with headlamp, plumb line, fin kick and exhaled bubbles |
 | `client/src/iso.ts` | Isometric view: orthographic camera, low-resolution pixels, each diver's light radius and drop shadow, bloom |
@@ -147,12 +109,8 @@ checks the party's log and the reef are as they were (`npm run build && npx tsx 
 | `client/src/loot/` | Each find's look (`looks.ts`), and its glint and ground label (`view.ts`) |
 | `client/src/station/` | The station's line and lantern on the reef (`line.ts`), and its screen with the shelf (`screen.ts`) |
 
-To add a find: add it to `shared/loot/items.ts`, give it a look in `client/src/loot/looks.ts`, and place it in the
-level's `loot` list. A creature that leaves something behind names it in its species' `drops`.
+To add a find: add it to `shared/loot/items.ts`, give it a look in `client/src/loot/looks.ts`, and place it in the level's `loot` list. A creature that leaves something behind names it in its species' `drops`.
 
-To add a creature: write its rules in `shared/creatures/<kind>.ts` and its look in `client/src/creatures/<kind>.ts`,
-register both by kind (the rules through `anySpecies` with a type guard, as `isLingcod` does), and place it in the level's `creatures` list. The arena, the network and the HUD need no
-change.
+To add a creature: write its rules in `shared/creatures/<kind>.ts` and its look in `client/src/creatures/<kind>.ts`, register both by kind (the rules through `anySpecies` with a type guard, as `isLingcod` does), and place it in the level's `creatures` list. The arena, the network and the HUD need no change.
 
-Rendering uses three.js `WebGPURenderer` with TSL node materials; browsers without WebGPU fall
-back to WebGL2 automatically.
+Rendering uses three.js `WebGPURenderer` with TSL node materials; browsers without WebGPU fall back to WebGL2 automatically.

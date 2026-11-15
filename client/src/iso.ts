@@ -1,7 +1,22 @@
-import * as THREE from 'three/webgpu';
-import { color, float, fog, length, max, min, mix, oneMinus, positionWorld, screenUV, smoothstep, vec2, vec3 } from 'three/tsl';
-import { bloom } from 'three/addons/tsl/display/BloomNode.js';
-import { cutaway } from './env';
+import { bloom } from "three/addons/tsl/display/BloomNode.js";
+import {
+  color,
+  float,
+  fog,
+  length,
+  max,
+  min,
+  mix,
+  oneMinus,
+  positionWorld,
+  screenUV,
+  smoothstep,
+  vec2,
+  vec3,
+} from "three/tsl";
+import * as THREE from "three/webgpu";
+
+import { cutaway } from "./env";
 
 /**
  * Diablo II-style look: a fixed 2:1 isometric orthographic camera, a low internal resolution
@@ -21,8 +36,12 @@ export const ISO = {
 };
 
 export const fitIso = (camera: THREE.OrthographicCamera) => {
-  const h = ISO.viewHeight / 2; const w = h * (innerWidth / innerHeight);
-  camera.left = -w; camera.right = w; camera.top = h; camera.bottom = -h;
+  const h = ISO.viewHeight / 2;
+  const w = h * (innerWidth / innerHeight);
+  camera.left = -w;
+  camera.right = w;
+  camera.top = h;
+  camera.bottom = -h;
   camera.updateProjectionMatrix();
 };
 
@@ -37,7 +56,10 @@ export const isoCamera = () => {
  * pixels, so every scaled-up pixel is the same size.
  */
 export const isoPixelRatio = (lines = ISO.lines) => {
-  const factor = Math.max(1, Math.round((innerHeight * devicePixelRatio) / lines));
+  const factor = Math.max(
+    1,
+    Math.round((innerHeight * devicePixelRatio) / lines)
+  );
   return devicePixelRatio / factor;
 };
 
@@ -71,7 +93,8 @@ export const applyIsoScene = (scene: THREE.Scene) => {
 };
 
 /** A diver's own light: the circle of visibility around them. */
-export const isoDiverLight = () => new THREE.PointLight(0xb8_ef_e2, 18, ISO.radius * 2.2, 1.1);
+export const isoDiverLight = () =>
+  new THREE.PointLight(0xb8_ef_e2, 18, ISO.radius * 2.2, 1.1);
 
 export const isoOutput = (sceneColor: THREE.TextureNode) => {
   const glow = bloom(sceneColor, 1.15, 0.5, 0.42);
