@@ -8,6 +8,7 @@ import type { Area } from "../../shared/level";
 import { BAG_SLOTS } from "../../shared/loot/haul";
 import { ITEMS } from "../../shared/loot/items";
 import { BOT_ID } from "../../shared/protocol";
+import { bold, KEY_NAMES, KEYS, presses } from "./keys";
 import { Menu } from "./menu/menu";
 import type {
   CreatureSnapshot,
@@ -24,24 +25,16 @@ const finds = (n = 0) => `${n} ${n === 1 ? "find" : "finds"}`;
 const KEY_HINT_SECONDS = 90;
 const KEYS_SEEN = "abyssal.keys-seen";
 const DEV_NUMBERS = "abyssal.dev-numbers";
-/** The key the game binds to each action, as the HUD names it. Zone guides refer to these as `{action}`. */
-const KEY_NAMES: Record<string, string> = {
-  swim: "WASD",
-  sink: "J",
-  rise: "K",
-  act: "Space",
-  labels: "Alt",
-};
-const KEYS = [
+const KEY_HINTS = [
   [KEY_NAMES.swim, "swim"],
   [`${KEY_NAMES.sink} ${KEY_NAMES.rise}`, "sink, rise"],
   [KEY_NAMES.act, "act"],
 ]
-  .map(
-    ([keys, what]) =>
-      `<span>${keys.replaceAll(/\S+/gu, "<b>$&</b>")} ${what}</span>`
-  )
+  .map(([keys, what]) => `<span>${bold(keys)} ${what}</span>`)
   .join(" ");
+/** The action key and the bot buddy's key in bold, as prompts name them. */
+const ACT = bold(KEYS.act.name);
+const BUDDY = bold(KEYS.buddy.name);
 /** Seconds an area's guide fills an empty caption after a diver swims in. */
 const GUIDE_SECONDS = 14;
 
@@ -49,7 +42,7 @@ const GUIDE_SECONDS = 14;
 const withKeys = (text: string) =>
   text.replaceAll(/\{(?<what>[a-z]+)\}/gu, (all, what: string) => {
     const key = KEY_NAMES[what];
-    return key ? `<b>${key}</b>` : all;
+    return key ? bold(key) : all;
   });
 
 const el = <K extends keyof HTMLElementTagNameMap>(
@@ -147,26 +140,26 @@ const targetAct = (
 ) => {
   const n = me.bag.length;
   if (target.kind === "buddy") {
-    return "Hold <b>Space</b> to buddy-breathe";
+    return `Hold ${ACT} to buddy-breathe`;
   }
   if (target.kind === "calm") {
     return tc && SPECIES[tc.kind].busy(tc)
       ? "Too agitated: wait for it to settle"
-      : "Hold <b>Space</b> to calm";
+      : `Hold ${ACT} to calm`;
   }
   if (target.kind === "harpoon") {
-    return "Press <b>Space</b> to harpoon";
+    return `Press ${ACT} to harpoon`;
   }
   if (target.kind === "climb") {
-    return `Press <b>Space</b> to climb out${n ? ` and log ${n} ${n === 1 ? "find" : "finds"}` : ""}`;
+    return `Press ${ACT} to climb out${n ? ` and log ${n} ${n === 1 ? "find" : "finds"}` : ""}`;
   }
   if (n >= BAG_SLOTS) {
     return "Bag full: climb out at the station to log it";
   }
   if (target.kind === "pry") {
-    return `Both divers hold <b>Space</b> to pry it free <span class="dist">${tl?.hands ?? 0} of 2</span>`;
+    return `Both divers hold ${ACT} to pry it free <span class="dist">${tl?.hands ?? 0} of 2</span>`;
   }
-  return "Hold <b>Space</b> to bag";
+  return `Hold ${ACT} to bag`;
 };
 
 /** The caption's action line when nothing is targeted: the most pressing hint, whether it is an alarm, and the creature it names. */
@@ -187,14 +180,14 @@ const hint = (
   if (me.down) {
     return {
       act: partner
-        ? `Out of air. ${escape(partner.name)} can hold <b>Space</b> beside you to buddy-breathe.`
-        : "Out of air. Press <b>B</b> for a bot buddy, or wait for the reset.",
+        ? `Out of air. ${escape(partner.name)} can hold ${ACT} beside you to buddy-breathe.`
+        : `Out of air. Press ${BUDDY} for a bot buddy, or wait for the reset.`,
       alarm: true,
     };
   }
   if (downed) {
     return {
-      act: `Swim to ${escape(downed.name)} and hold <b>Space</b> to buddy-breathe`,
+      act: `Swim to ${escape(downed.name)} and hold ${ACT} to buddy-breathe`,
       alarm: true,
     };
   }
@@ -364,13 +357,18 @@ export class Hud {
       '<div class="kick">Depth</div><div class="v"></div>'
     );
     this.depth = part(right, ".v");
-    this.mute = el("div", "hud-mute", right, "Sound off &middot; <b>M</b>");
+    this.mute = el(
+      "div",
+      "hud-mute",
+      right,
+      `Sound off &middot; ${bold(KEYS.mute.name)}`
+    );
     this.status = el("div", "hud-status", right);
     const invite = el(
       "button",
       "hud-invite",
       right,
-      '<span class="ask">Invite a buddy</span><span class="menu-key">Menu</span> <b>Esc</b>'
+      `<span class="ask">Invite a buddy</span><span class="menu-key">Menu</span> ${bold(KEYS.menu.name)}`
     );
     invite.type = "button";
     invite.addEventListener("click", () => {
@@ -379,7 +377,7 @@ export class Hud {
       invite.blur();
     });
     this.invite = invite;
-    this.inviteBot = el("div", "hud-bot", right, "or <b>B</b> for a bot buddy");
+    this.inviteBot = el("div", "hud-bot", right, `or ${BUDDY} for a bot buddy`);
 
     this.ledger = el("div", "hud-ledger", this.root);
     this.rows = el("div", "rows", this.ledger);
@@ -425,7 +423,7 @@ export class Hud {
       localStorage.getItem(DEV_NUMBERS) === "1"
     );
     addEventListener("keydown", (e) => {
-      if (e.code === "Backquote" && !e.repeat) {
+      if (presses(e, KEYS.numbers) && !e.repeat) {
         this.toggleNumbers();
       }
     });
@@ -644,7 +642,7 @@ export class Hud {
     if (this.guide && now < this.guideUntil && !me.aboard) {
       return this.guide;
     }
-    return this.keysLeft > 0 ? KEYS : "";
+    return this.keysLeft > 0 ? KEY_HINTS : "";
   }
 
   private renderBag(me: DiverSnapshot) {
@@ -717,7 +715,7 @@ export class Hud {
     this.capTitle.classList.toggle("roman", !!cap?.roman);
     this.capAct.classList.toggle("alarm", alarm);
     this.capAct.classList.toggle("acting", acting);
-    this.capAct.classList.toggle("keys", act === KEYS);
+    this.capAct.classList.toggle("keys", act === KEY_HINTS);
     this.caption.classList.toggle("show", !!cap || !!act);
     this.caption.classList.toggle("named", !!cap);
   }

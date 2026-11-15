@@ -7,6 +7,7 @@ import { LOOT } from "../../../shared/loot/haul";
 import { ITEMS } from "../../../shared/loot/items";
 import type { Category, ItemKey } from "../../../shared/loot/items";
 import { ISO } from "../iso";
+import { KEYS, presses } from "../keys";
 import type { DiverSnapshot, LootSnapshot } from "../net";
 import { buildLook, glowUniform } from "./looks";
 
@@ -40,13 +41,13 @@ const LABEL_REACH = ISO.radius * 0.95;
 
 let altHeld = false;
 addEventListener("keydown", (e) => {
-  if (e.key === "Alt") {
+  if (presses(e, KEYS.labels)) {
     altHeld = true;
     e.preventDefault();
   }
 });
 addEventListener("keyup", (e) => {
-  if (e.key === "Alt") {
+  if (presses(e, KEYS.labels)) {
     altHeld = false;
   }
 });

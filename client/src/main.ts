@@ -36,6 +36,7 @@ import {
   isoOutput,
   isoPixelRatio,
 } from "./iso";
+import { KEYS, presses } from "./keys";
 import { loader } from "./loader";
 import { LootView, TINT } from "./loot/view";
 import { Net } from "./net";
@@ -257,13 +258,13 @@ const main = async () => {
   // A tap of the action key can start and end between two frames, so key presses are caught as they happen.
   let tapped = false;
   addEventListener("keydown", (e) => {
-    if (!e.repeat && e.code === "Space") {
+    if (!e.repeat && presses(e, KEYS.act)) {
       tapped = true;
     }
   });
 
   addEventListener("keydown", (e) => {
-    if (e.code === "KeyB" && !e.repeat) {
+    if (presses(e, KEYS.buddy) && !e.repeat) {
       net.toggleBuddy();
     }
   });

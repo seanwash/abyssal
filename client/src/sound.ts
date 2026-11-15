@@ -1,6 +1,8 @@
+import { KEYS, presses } from "./keys";
+
 /**
  * Fight sounds synthesised with Web Audio, so they add nothing to the download. Browsers only
- * start audio after a key press, so the context starts on the first one. M mutes.
+ * start audio after a key press, so the context starts on the first one. The mute key mutes.
  */
 
 let ctx: AudioContext | null = null;
@@ -16,7 +18,7 @@ export const toggleMute = () => {
 };
 
 addEventListener("keydown", (e) => {
-  if (e.code === "KeyM" && !e.repeat) {
+  if (presses(e, KEYS.mute) && !e.repeat) {
     toggleMute();
   }
   if (!ctx) {

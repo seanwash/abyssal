@@ -1,3 +1,6 @@
+import { KEYS, presses } from "./keys";
+import type { Binding } from "./keys";
+
 const held = new Set<string>();
 
 addEventListener("keydown", (e) => {
@@ -5,12 +8,15 @@ addEventListener("keydown", (e) => {
     return;
   }
   held.add(e.code);
-  if (e.code === "Space") {
+  if (presses(e, KEYS.act)) {
     e.preventDefault();
   }
 });
 addEventListener("keyup", (e) => held.delete(e.code));
 addEventListener("blur", () => held.clear());
+
+/** Whether one of `b`'s keys is held. */
+const isHeld = (b: Binding) => b.codes.some((c) => held.has(c));
 
 /** Lets go of every held key, as if each were released. */
 export const releaseKeys = () => held.clear();
@@ -22,22 +28,22 @@ const readKeys = () => {
   let f = 0;
   let r = 0;
   let u = 0;
-  if (held.has("KeyW") || held.has("ArrowUp")) {
+  if (isHeld(KEYS.forward)) {
     f += 1;
   }
-  if (held.has("KeyS") || held.has("ArrowDown")) {
+  if (isHeld(KEYS.back)) {
     f -= 1;
   }
-  if (held.has("KeyD") || held.has("ArrowRight")) {
+  if (isHeld(KEYS.right)) {
     r += 1;
   }
-  if (held.has("KeyA") || held.has("ArrowLeft")) {
+  if (isHeld(KEYS.left)) {
     r -= 1;
   }
-  if (held.has("KeyK")) {
+  if (isHeld(KEYS.rise)) {
     u += 1;
   }
-  if (held.has("KeyJ")) {
+  if (isHeld(KEYS.sink)) {
     u -= 1;
   }
   return { f, r, u };
@@ -82,9 +88,9 @@ export const readSwim = (camYaw: number) => {
   return { x, y: Math.max(-1, Math.min(1, u)), z };
 };
 
-/** Whether the action key is held: Space, or a gamepad's X or right trigger. */
+/** Whether the action key is held, or a gamepad's X or right trigger. */
 export const readAct = () => {
-  if (held.has("Space")) {
+  if (isHeld(KEYS.act)) {
     return true;
   }
   const pad = navigator.getGamepads?.().find(Boolean);

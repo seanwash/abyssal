@@ -1,27 +1,26 @@
 import { releaseKeys } from "../input";
+import { bold, KEYS, presses, SWIM } from "../keys";
 import { PARTY } from "../party";
 import { isMuted, toggleMute } from "../sound";
 
 import css from "./menu.css?inline";
 
-const keys = (k: string) => k.replaceAll(/\S+/gu, "<b>$&</b>");
-
 const CONTROLS = [
-  ["W A S D", "swim, or the arrow keys"],
-  ["J K", "sink, rise"],
-  ["Space", "act on what the caption names"],
-  ["Tab", "chart of the zone"],
-  ["Alt", "hold to name every find in your light"],
-  ["B", "bring or send home a bot buddy"],
-  ["M", "sound on or off"],
-  ["`", "developer numbers"],
-  ["Esc", "this menu"],
+  [SWIM.map((b) => b.name).join(" "), "swim, or the arrow keys"],
+  [`${KEYS.sink.name} ${KEYS.rise.name}`, "sink, rise"],
+  [KEYS.act.name, "act on what the caption names"],
+  [KEYS.chart.name, "chart of the zone"],
+  [KEYS.labels.name, "hold to name every find in your light"],
+  [KEYS.buddy.name, "bring or send home a bot buddy"],
+  [KEYS.mute.name, "sound on or off"],
+  [KEYS.numbers.name, "developer numbers"],
+  [KEYS.menu.name, "this menu"],
 ]
-  .map(([k, what]) => `<dt>${keys(k)}</dt><dd>${what}</dd>`)
+  .map(([k, what]) => `<dt>${bold(k)}</dt><dd>${what}</dd>`)
   .join("");
 
 const row = (id: string, label: string, key = "") =>
-  `<button type="button" data-id="${id}"><span class="l">${label}</span><span class="v"></span>${key ? keys(key) : ""}</button>`;
+  `<button type="button" data-id="${id}"><span class="l">${label}</span><span class="v"></span>${key ? bold(key) : ""}</button>`;
 
 /** What the HUD knows that the menu's rows show. */
 export interface MenuState {
@@ -59,19 +58,19 @@ export class Menu {
         <div class="plate-sub">The dive goes on while this is open.</div>
         <div class="plate-rule" aria-hidden="true"></div>
         <div class="menu-list">
-          ${row("back", "Back to the dive", "Esc")}
+          ${row("back", "Back to the dive", KEYS.menu.name)}
           ${row("invite", "Invite a buddy")}
-          ${row("buddy", "Bot buddy", "B")}
-          ${row("sound", "Sound", "M")}
+          ${row("buddy", "Bot buddy", KEYS.buddy.name)}
+          ${row("sound", "Sound", KEYS.mute.name)}
           ${row("controls", "Controls")}
-          ${row("numbers", "Developer numbers", "`")}
+          ${row("numbers", "Developer numbers", KEYS.numbers.name)}
         </div>
         <div class="menu-controls">
           <dl>${CONTROLS}</dl>
-          ${row("list", "Back to the menu", "Esc")}
+          ${row("list", "Back to the menu", KEYS.menu.name)}
         </div>
         <div class="menu-note"></div>
-        <div class="menu-foot">${keys("↑ ↓")} choose &middot; ${keys("Enter")} pick</div>
+        <div class="menu-foot">${bold("↑ ↓")} choose &middot; ${bold("Enter")} pick</div>
       </div>`;
     this.rows = [...this.root.querySelectorAll("button")];
     for (const b of this.rows) {
@@ -115,7 +114,7 @@ export class Menu {
         if (e.target instanceof HTMLInputElement) {
           return;
         }
-        if (e.code === "Escape" && !e.repeat) {
+        if (presses(e, KEYS.menu) && !e.repeat) {
           if (this.root.classList.contains("controls")) {
             this.page(false);
           } else {
@@ -123,9 +122,9 @@ export class Menu {
           }
         } else if (!this.open) {
           return;
-        } else if (e.code === "ArrowUp" || e.code === "KeyW") {
+        } else if (presses(e, KEYS.forward)) {
           this.move(-1, e);
-        } else if (e.code === "ArrowDown" || e.code === "KeyS") {
+        } else if (presses(e, KEYS.back)) {
           this.move(1, e);
         } else if (e.code === "Tab") {
           this.move(e.shiftKey ? -1 : 1, e);

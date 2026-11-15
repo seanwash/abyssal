@@ -2,6 +2,7 @@ import { ITEMS } from "../../../shared/loot/items";
 import type { Category } from "../../../shared/loot/items";
 import { shelf } from "../../../shared/station";
 import type { Find, StationLog, StationMessage } from "../../../shared/station";
+import { bold, KEYS } from "../keys";
 import type { DiverSnapshot } from "../net";
 import { sound } from "../sound";
 
@@ -50,7 +51,9 @@ const partnerLine = (other: DiverSnapshot | undefined, online: boolean) => {
       ? `${escape(other.name)} is at the station too.`
       : `${escape(other.name)} is still in the water.`;
   }
-  return online ? "Diving alone. <b>B</b> brings a bot buddy." : "";
+  return online
+    ? `Diving alone. ${bold(KEYS.buddy.name)} brings a bot buddy.`
+    : "";
 };
 
 /**
@@ -81,7 +84,7 @@ export class StationScreen {
         <div class="station-foot">
           <span class="station-partner"></span>
           <span class="station-stamp"></span>
-          <button type="button">Dive <b>Space</b></button>
+          <button type="button">Dive ${bold(KEYS.act.name)}</button>
         </div>
       </div>`;
     this.tally = part(this.root, ".station-tally");

@@ -105,6 +105,7 @@ BROWSER=sparticuz PACE=4 W=800 H=450 QS='&scale=0.5' npm run bots
 | `client/src/env.ts` | Seafloor with caustics, granite boulders, giant kelp, scatter, light shafts, marine snow |
 | `client/src/diver.ts` | Procedural diver with headlamp, plumb line, fin kick and exhaled bubbles |
 | `client/src/iso.ts` | Isometric view: orthographic camera, low-resolution pixels, each diver's light radius and drop shadow, bloom |
+| `client/src/keys.ts` | Every key the game binds, by action, with the name prompts show. Input, the HUD's prompts and key hints, the zone guides' `{action}` placeholders (such as `{act}`, or `{swim}` for all four swim keys), the station, the chart and the menu's Controls page all read it, so a key change is one edit there |
 | `client/src/hud.ts` | Plate-style specimen card with depth, air and bag, specimen label, diver names, action prompts, the station marker |
 | `shared/loot/items.ts` | Every find: its Latin and common name, kind, field note, and whether it takes both divers |
 | `shared/loot/haul.ts` | Finds on the reef and in the divers' bags: bagging, prying, drops, lost bags. The server runs it |

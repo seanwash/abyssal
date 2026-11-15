@@ -1,6 +1,7 @@
 import { SUITS } from "../../../shared/constants";
 import { areaAt, nearestStation, toMap } from "../../../shared/level";
 import type { Level, MapPoint } from "../../../shared/level";
+import { bold, KEYS, presses } from "../keys";
 import type { DiverSnapshot } from "../net";
 
 import css from "./chart.css?inline";
@@ -258,14 +259,14 @@ export class Chart {
     const { u0, u1, v0, v1 } = level.bounds;
     this.root.className = "chart";
     this.root.style.setProperty("--aspect", String((u1 - u0) / (v1 - v0)));
-    this.root.innerHTML = `<div class="chart-frame"><i></i><i></i><i></i><i></i></div><div class="chart-map"><canvas></canvas><svg viewBox="${u0} ${-v1} ${u1 - u0} ${v1 - v0}" preserveAspectRatio="none"></svg><div class="chart-marks"></div></div><div class="chart-key"><span class="kick">Chart &middot; ${escape(level.name)}</span><span>Soundings and contours in metres, every ${CONTOUR} m</span><span><b>Tab</b> close</span></div>`;
+    this.root.innerHTML = `<div class="chart-frame"><i></i><i></i><i></i><i></i></div><div class="chart-map"><canvas></canvas><svg viewBox="${u0} ${-v1} ${u1 - u0} ${v1 - v0}" preserveAspectRatio="none"></svg><div class="chart-marks"></div></div><div class="chart-key"><span class="kick">Chart &middot; ${escape(level.name)}</span><span>Soundings and contours in metres, every ${CONTOUR} m</span><span>${bold(KEYS.chart.name)} close</span></div>`;
     document.body.append(this.root);
     // Drawn once while the loading plate is up, so the first Tab opens the chart without a hitch.
     bakeGround(level, this.root.querySelector("canvas") as HTMLCanvasElement);
     (this.root.querySelector("svg") as SVGElement).innerHTML = drawLines(level);
 
     addEventListener("keydown", (e) => {
-      if (e.code !== "Tab" || e.target instanceof HTMLInputElement) {
+      if (!presses(e, KEYS.chart) || e.target instanceof HTMLInputElement) {
         return;
       }
       // Tab would otherwise move focus to the invite button.
