@@ -20,7 +20,6 @@ import { applyIsoScene, fitIso, ISO, isoCamera, isoDiverLight, isoOutput, isoPix
 import { readAct, readSwim } from './input';
 import { Net } from './net';
 import { SeaNettle } from './nettle';
-import { PartyPanel } from './party';
 import './style.css';
 
 const params = new URLSearchParams(location.search);
@@ -116,7 +115,6 @@ async function main() {
   pipeline.outputNode = isoOutput(sceneColor);
 
   const hud = new Hud();
-  const party = new PartyPanel();
   const net = new Net(level);
   const name = params.get('name') ?? '';
   const stationScreen = new StationScreen(() => net.dive());
@@ -301,7 +299,7 @@ async function main() {
     hud.fight(divers, creatures, loot, level.station, target, act, net, camera, innerWidth, innerHeight);
     frames++;
     frameMs += (performance.now() - f0 - frameMs) * 0.1;
-    party.update(net, frameMs);
+    hud.stats(net, frameMs);
     (window as unknown as { __abyssal: unknown }).__abyssal = { status: net.status, divers, creatures, loot, target, phase: net.phase, corrections: net.corrections, frames, frameMs, log: net.station?.log ?? null };
     requestAnimationFrame(frame);
   };

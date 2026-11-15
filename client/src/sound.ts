@@ -25,6 +25,8 @@ addEventListener('keydown', (e) => {
   if (ctx.state === 'suspended') void ctx.resume();
 });
 
+export const isMuted = () => muted;
+
 function ready() {
   return ctx && ctx.state === 'running' && !muted ? ctx : null;
 }

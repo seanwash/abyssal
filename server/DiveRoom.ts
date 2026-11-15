@@ -5,7 +5,7 @@ import { SPECIES } from '../shared/creatures';
 import { buildLevel, type Level } from '../shared/level';
 import { Haul } from '../shared/loot/haul';
 import { stepDiver } from '../shared/physics';
-import { CLOSE_REPLACED, ERROR_DIVE_FULL, sanitizeInput, swimInput, type DiverInput, type DiverSim, type JoinOptions } from '../shared/protocol';
+import { BOT_ID, CLOSE_REPLACED, ERROR_DIVE_FULL, sanitizeInput, swimInput, type DiverInput, type DiverSim, type JoinOptions } from '../shared/protocol';
 import { canClimb, foundSpots, logTrip, newLog, stationReach, type StationLog, type StationMessage } from '../shared/station';
 import { buddyInput } from './buddy';
 import { loadLog, writeLog } from './save';
@@ -24,7 +24,6 @@ interface Seat {
 
 const MAX_INPUTS_PER_TICK = 4;
 const MAX_QUEUE = 20;
-const BOT_ID = 'buddy-bot';
 /** How long a dropped diver's seat and position wait for the same tab to come back. */
 const AWAY_MS = 15 * 60 * 1000;
 

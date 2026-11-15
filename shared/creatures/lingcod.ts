@@ -26,6 +26,7 @@ const size = { r: 0.5, h: 0.3 };
 
 export const lingcod: Species<Lingcod> = {
   name: 'the lingcod',
+  latin: 'Ophiodon elongatus',
   size,
   action: 'calm',
   range: 3.4,

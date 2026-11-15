@@ -43,6 +43,8 @@ export interface World {
 export interface Species<C extends Creature = Creature> {
   /** How fight messages name it, such as "the lingcod". */
   name: string;
+  /** The binomial the HUD captions it with; machines have none. */
+  latin?: string;
   size: { r: number; h: number };
   /** What the action key does to it: hold to calm a sick animal, or press to harpoon a machine. */
   action: 'calm' | 'harpoon';

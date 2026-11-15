@@ -30,6 +30,9 @@ export function sanitizeInput(raw: unknown): DiverInput | null {
   return { seq: Math.floor(r.seq as number), x, y, z, act: r.act ? 1 : 0 };
 }
 
+/** The diver id of the bot buddy, which gives its seat to a person who joins. */
+export const BOT_ID = 'buddy-bot';
+
 /** Options a browser sends when it joins a dive. `party` picks the room; `diver` identifies the tab across reloads and drops. */
 export interface JoinOptions {
   name?: string;
