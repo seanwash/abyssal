@@ -37,9 +37,10 @@ import {
 import * as THREE from "three/webgpu";
 
 import { SURFACE_Y } from "../../shared/constants";
-import { floorHeight } from "../../shared/level";
-import type { Level } from "../../shared/level";
+import { floorHeight, toWorld } from "../../shared/level";
+import type { Boulder, Ground, Kelp, Level } from "../../shared/level";
 import { mulberry32, valueNoise2 } from "../../shared/rng";
+import { water } from "./water";
 
 export const PALETTE = {
   deep: new THREE.Color(0x0e_2a_30),
@@ -82,7 +83,7 @@ const caustics = Fn(() => {
     0.55,
     mx_noise_float(positionWorld.xz.mul(0.07).add(time.mul(0.02)))
   );
-  const depthFade = smoothstep(-16, -3, positionWorld.y);
+  const depthFade = smoothstep(-16, -3, positionWorld.y).mul(water.sun);
   const up = smoothstep(0.25, 0.85, normalWorld.y);
   return la
     .mul(lb.mul(0.6).add(0.4))
@@ -103,29 +104,76 @@ const screenDoor = Fn(() => {
     floor(screenCoordinate.x).add(floor(screenCoordinate.y)),
     2
   );
-  const hidden = max(step(r, 1.3), step(r, 2.5).mul(checker));
+  const hidden = max(step(r, 1.8), step(r, 3.2).mul(checker));
   return oneMinus(inFront.mul(hidden));
 });
 
-export const buildFloor = (level: Level) => {
-  const geo = new THREE.PlaneGeometry(
-    level.floorExtentX,
-    level.floorExtentZ,
-    level.floorRes,
-    level.floorRes
-  );
-  geo.rotateX(-Math.PI / 2);
-  const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i += 1) {
-    pos.setY(i, floorHeight(pos.getX(i), pos.getZ(i)));
-  }
-  geo.computeVertexNormals();
+/** Grid samples per side of one floor chunk; each chunk is its own mesh, so the camera draws only the chunks it sees. */
+const CHUNK = 64;
 
+/**
+ * One chunk of the floor straight from the ground grid, from sample `ci, cj`: heights, normals
+ * from the neighbouring samples, so chunks meet without a seam, and what the ground is made of.
+ */
+const floorChunk = (g: Ground, ci: number, cj: number) => {
+  const w = Math.min(CHUNK, g.nu - 1 - ci) + 1;
+  const h = Math.min(CHUNK, g.nv - 1 - cj) + 1;
+  const pos = new Float32Array(w * h * 3);
+  const nrm = new Float32Array(w * h * 3);
+  const kind = new Float32Array(w * h * 3);
+  const at = (i: number, j: number) =>
+    g.height[
+      Math.min(g.nv - 1, Math.max(0, j)) * g.nu +
+        Math.min(g.nu - 1, Math.max(0, i))
+    ];
+  for (let j = 0; j < h; j += 1) {
+    for (let i = 0; i < w; i += 1) {
+      const gi = ci + i;
+      const gj = cj + j;
+      const k = gj * g.nu + gi;
+      const o = (j * w + i) * 3;
+      const { x, z } = toWorld(g.u0 + gi * g.step, g.v0 + gj * g.step);
+      pos.set([x, g.height[k], z], o);
+      // The slope in the map frame, turned into a world normal.
+      const nu = -(at(gi + 1, gj) - at(gi - 1, gj)) / (2 * g.step);
+      const nv = -(at(gi, gj + 1) - at(gi, gj - 1)) / (2 * g.step);
+      const n = toWorld(nu, nv);
+      const l = Math.hypot(n.x, 1, n.z);
+      nrm.set([n.x / l, 1 / l, n.z / l], o);
+      kind.set([g.reef[k] / 255, g.barren[k] / 255, g.fill[k] / 255], o);
+    }
+  }
+  const index: number[] = [];
+  for (let j = 0; j < h - 1; j += 1) {
+    for (let i = 0; i < w - 1; i += 1) {
+      const a = j * w + i;
+      const b = a + 1;
+      const c = a + w;
+      const d = c + 1;
+      index.push(a, b, c, b, d, c);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute("normal", new THREE.BufferAttribute(nrm, 3));
+  geo.setAttribute("aGround", new THREE.BufferAttribute(kind, 3));
+  geo.setIndex(index);
+  geo.computeBoundingSphere();
+  return geo;
+};
+
+/**
+ * The seafloor: rippled sand, granite reef encrusted with coralline and algae, the pink crust of
+ * an urchin barren, and the pale rubble of dumped fill, painted from the ground grid's layers.
+ */
+export const buildFloor = (level: Level) => {
+  const g = level.ground;
   const mat = new THREE.MeshStandardNodeMaterial({
     roughness: 0.95,
     metalness: 0,
   });
   const p = positionWorld;
+  const ground = attribute("aGround", "vec3");
   const broad = mx_fractal_noise_float(p.xz.mul(0.09), 3, 2, 0.5)
     .mul(0.5)
     .add(0.5);
@@ -149,14 +197,49 @@ export const buildFloor = (level: Level) => {
     mx_noise_float(p.xz.mul(14)).mul(0.5).add(0.5)
   ).mul(smoothstep(0.3, 0.7, broad));
   const base = mix(sand, color(0x5d_56_38), detritus.mul(0.4));
-  mat.colorNode = mix(base, color(0xe8_dc_c0), shellHash.mul(0.6));
+  const seabed = mix(base, color(0xe8_dc_c0), shellHash.mul(0.6));
+  const crag = mx_fractal_noise_float(p.mul(0.7), 3, 2, 0.5).mul(0.5).add(0.5);
+  const reef = mix(
+    mix(color(PALETTE.granite), color(PALETTE.graniteLight), crag),
+    mix(
+      color(PALETTE.coralline),
+      color(PALETTE.algae),
+      smoothstep(-0.3, 0.5, mx_noise_float(p.mul(1.6).add(5)))
+    ),
+    smoothstep(0.35, 0.75, fine.mul(0.4).add(crag.mul(0.6))).mul(0.75)
+  );
+  const barren = mix(
+    color(0x8a_5a_6e),
+    color(0xc8_8a_9a),
+    smoothstep(0.3, 0.7, crag.mul(0.7).add(fine.mul(0.3)))
+  );
+  const fill = mix(
+    color(0xb4_ac_98),
+    color(0xe0_d8_c4),
+    smoothstep(0.35, 0.65, fine.mul(0.5).add(crag.mul(0.5)))
+  ).mul(oneMinus(step(0.8, fine).mul(0.25)));
+  const rock = max(ground.x, max(ground.y, ground.z));
+  mat.colorNode = mix(
+    mix(seabed, reef, ground.x),
+    mix(barren, fill, ground.z),
+    max(ground.y, ground.z)
+  );
   mat.normalNode = bumpMap(
-    ripple.mul(0.6).add(fine.mul(0.25)).add(detritus.mul(0.3)),
+    mix(
+      ripple.mul(0.6).add(fine.mul(0.25)).add(detritus.mul(0.3)),
+      crag.mul(1.4).add(fine.mul(0.3)),
+      rock
+    ),
     float(0.6)
   );
   mat.emissiveNode = caustics().mul(color(0xcf_f2_d2)).mul(0.32);
-  const mesh = new THREE.Mesh(geo, mat);
-  return mesh;
+  const group = new THREE.Group();
+  for (let cj = 0; cj < g.nv - 1; cj += CHUNK) {
+    for (let ci = 0; ci < g.nu - 1; ci += CHUNK) {
+      group.add(new THREE.Mesh(floorChunk(g, ci, cj), mat));
+    }
+  }
+  return group;
 };
 
 const rockGeometry = (seed: number) => {
@@ -187,7 +270,8 @@ const rockGeometry = (seed: number) => {
 const buildAnemones = (level: Level) => {
   const rnd = mulberry32(99);
   const geo = new THREE.SphereGeometry(1, 7, 5);
-  const count = level.boulders.length * 26;
+  const granite = level.boulders.filter((b) => b.stone === "granite");
+  const count = granite.length * 26;
   const mat = new THREE.MeshStandardNodeMaterial({ roughness: 0.6 });
   mat.colorNode = color(0xd8_55_7a);
   mat.emissiveNode = color(0x6a_18_34).mul(0.6);
@@ -200,7 +284,7 @@ const buildAnemones = (level: Level) => {
   const pos = new THREE.Vector3();
   const tint = new THREE.Color();
   let i = 0;
-  for (const b of level.boulders) {
+  for (const b of granite) {
     const cx = rnd() * Math.PI * 2;
     for (let k = 0; k < 26; k += 1) {
       const a = cx + (rnd() - 0.5) * 1.6;
@@ -228,8 +312,11 @@ const buildAnemones = (level: Level) => {
   return mesh;
 };
 
-export const buildBoulders = (level: Level) => {
-  const group = new THREE.Group();
+/**
+ * Rock in a stone's colours: granite (`light` speckled with `dark` mica) encrusted with coralline
+ * and algae on its upper faces, or dumped fill, paler and barely grown over.
+ */
+const rockMaterial = (stone: Boulder["stone"]) => {
   const mat = new THREE.MeshStandardNodeMaterial({
     roughness: 0.88,
     metalness: 0,
@@ -237,11 +324,12 @@ export const buildBoulders = (level: Level) => {
   const p = positionWorld;
   const tone = mx_fractal_noise_float(p.mul(0.6), 3, 2, 0.5).mul(0.5).add(0.5);
   const speck = step(0.55, mx_noise_float(p.mul(11)));
-  const granite = mix(
-    color(PALETTE.granite),
-    color(PALETTE.graniteLight),
+  const fill = stone === "fill";
+  const stoneColour = mix(
+    color(fill ? new THREE.Color(0xa8_a0_8c) : PALETTE.granite),
+    color(fill ? new THREE.Color(0xd8_d0_bc) : PALETTE.graniteLight),
     tone
-  ).mul(oneMinus(speck.mul(0.35)));
+  ).mul(oneMinus(speck.mul(fill ? 0.12 : 0.35)));
   const encrustMask = smoothstep(
     0.2,
     0.75,
@@ -254,20 +342,28 @@ export const buildBoulders = (level: Level) => {
   );
   const crust = mx_noise_float(p.mul(6)).mul(0.5).add(0.5);
   mat.colorNode = mix(
-    granite,
+    stoneColour,
     encrust.mul(crust.mul(0.5).add(0.6)),
-    encrustMask.mul(0.7)
+    encrustMask.mul(fill ? 0.15 : 0.7)
   );
   mat.emissiveNode = caustics().mul(color(0xcf_f2_d2)).mul(0.1);
   mat.normalNode = bumpMap(
-    mx_fractal_noise_float(p.mul(2.2), 3, 2, 0.5).add(speck.mul(0.2)),
-    float(0.25)
+    mx_fractal_noise_float(p.mul(fill ? 4 : 2.2), 3, 2, 0.5).add(
+      speck.mul(0.2)
+    ),
+    float(fill ? 0.4 : 0.25)
   );
   mat.opacityNode = screenDoor();
   mat.alphaTest = 0.5;
+  return mat;
+};
+
+export const buildBoulders = (level: Level) => {
+  const group = new THREE.Group();
+  const mats = { granite: rockMaterial("granite"), fill: rockMaterial("fill") };
   const geos = [0, 1, 2, 3].map((s) => rockGeometry(s * 13 + 5));
   for (const b of level.boulders) {
-    const m = new THREE.Mesh(geos[b.seed % geos.length], mat);
+    const m = new THREE.Mesh(geos[b.seed % geos.length], mats[b.stone]);
     m.position.set(b.x, b.y, b.z);
     m.scale.set(b.r, b.r * b.sy, b.r * (0.85 + (b.seed % 7) / 20));
     m.rotation.y = b.rot;
@@ -339,7 +435,7 @@ const bladeGeometry = (
 
 const tagGeometry = (
   g: THREE.BufferGeometry,
-  k: Level["kelp"][number],
+  k: Kelp,
   c0: THREE.Color,
   c1: THREE.Color,
   along = -1
@@ -374,17 +470,13 @@ const tagGeometry = (
   }
 };
 
-/**
- * Giant kelp (Macrocystis pyrifera): stipes with alternating ruffled blades and gas floats,
- * merged into one mesh that sways in a shared surge plus per-plant motion.
- */
-export const buildKelp = (level: Level) => {
-  const rnd = mulberry32(31);
+/** One merged geometry for a group of kelp plants. */
+const kelpGeometry = (plants: Kelp[], rnd: () => number) => {
   const parts: THREE.BufferGeometry[] = [];
   const up = new THREE.Vector3(0, 1, 0);
   const bladderGeo = new THREE.SphereGeometry(0.05, 6, 4);
 
-  for (const k of level.kelp) {
+  for (const k of plants) {
     const lean = new THREE.Vector3(Math.cos(k.lean), 0, Math.sin(k.lean));
     const H = k.height;
     const pathPt = (t: number) =>
@@ -466,6 +558,15 @@ export const buildKelp = (level: Level) => {
     );
   }
   geo.computeVertexNormals();
+  geo.computeBoundingSphere();
+  // The sway moves blades up to about a metre and a half from where they were built.
+  if (geo.boundingSphere) {
+    geo.boundingSphere.radius += 1.5;
+  }
+  return geo;
+};
+
+const kelpMaterial = () => {
   const mat = new THREE.MeshStandardNodeMaterial({
     roughness: 0.55,
     metalness: 0,
@@ -490,16 +591,49 @@ export const buildKelp = (level: Level) => {
     .mul(bend);
   mat.positionNode = positionLocal.add(vec3(dx, 0, dz));
   const vcol = attribute("color", "vec3");
-  const lift = smoothstep(-12, -1, positionWorld.y);
+  const lift = smoothstep(-12, -1, positionWorld.y).mul(water.sun);
   mat.colorNode = vcol;
   mat.emissiveNode = vcol.mul(color(0xff_d2_7a)).mul(lift.mul(0.22).add(0.05));
   mat.opacityNode = screenDoor();
   mat.alphaTest = 0.5;
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.frustumCulled = false;
-  return mesh;
+  return mat;
 };
 
+/** Kelp is merged into one mesh per cell this many metres across, so the camera draws only the cells it sees. */
+const KELP_CELL = 24;
+
+/**
+ * Giant kelp (Macrocystis pyrifera): stipes with alternating ruffled blades and gas floats,
+ * merged into one mesh per cell that sways in a shared surge plus per-plant motion. `pause` gives
+ * the browser a turn between cells, since a zone's kelp takes a while to build.
+ */
+export const buildKelp = async (
+  level: Level,
+  pause: () => Promise<unknown>
+) => {
+  const rnd = mulberry32(31);
+  const cells = new Map<string, Kelp[]>();
+  for (const k of level.kelp) {
+    const key = `${Math.floor(k.x / KELP_CELL)},${Math.floor(k.z / KELP_CELL)}`;
+    cells.set(key, [...(cells.get(key) ?? []), k]);
+  }
+  const mat = kelpMaterial();
+  const group = new THREE.Group();
+  const queue = [...cells.values()];
+  const growCell = async (): Promise<void> => {
+    const plants = queue.shift();
+    if (!plants) {
+      return;
+    }
+    group.add(new THREE.Mesh(kelpGeometry(plants, rnd), mat));
+    await pause();
+    await growCell();
+  };
+  await growCell();
+  return group;
+};
+
+/** Shafts of daylight from the surface, as strong as the water's daylight; the caller keeps them around the camera. */
 export const buildGodRays = () => {
   const group = new THREE.Group();
   const rnd = mulberry32(5);
@@ -522,6 +656,7 @@ export const buildGodRays = () => {
     mat.opacityNode = fall
       .mul(edge)
       .mul(flicker)
+      .mul(water.sun)
       .mul(0.06 + rnd() * 0.05);
     const m = new THREE.Mesh(geo, mat);
     const w = 1.5 + rnd() * 4;
@@ -577,47 +712,41 @@ export const buildMarineSnow = (count = 2600) => {
 
 export { max };
 
-/** Seafloor scatter: cobbles, bat stars (Patiria miniata) and broken shell, so open sand reads at walking scale. */
-export const buildScatter = (level: Level) => {
-  const rnd = mulberry32(211);
-  const group = new THREE.Group();
-  const m = new THREE.Matrix4();
+/** Scatter is built in square cells of the map this many metres across, one instanced mesh per kind per cell, so the camera draws only the cells it sees. */
+const SCATTER_CELL = 32;
+
+/** One kind of scatter: its mesh, how many per square metre, and where and how each one sits. */
+interface ScatterKind {
+  geo: THREE.BufferGeometry;
+  mat: THREE.Material;
+  perM2: number;
+  /** Clumps of this many, or 1 to spread them evenly. */
+  clump: number;
+  /** Whether `place` sets a colour for each one. */
+  tinted?: boolean;
+  /** Sets the matrix, and the colour when tinted, of one placed at x, z on the floor. */
+  place: (
+    x: number,
+    z: number,
+    floorY: number,
+    rnd: () => number,
+    m: THREE.Matrix4,
+    tint: THREE.Color
+  ) => void;
+}
+
+const scatterKinds = (): ScatterKind[] => {
   const q = new THREE.Quaternion();
   const s = new THREE.Vector3();
   const p = new THREE.Vector3();
-  const tint = new THREE.Color();
-  const free = (x: number, z: number) =>
-    !level.boulders.some((b) => Math.hypot(b.x - x, b.z - z) < b.r * 0.9);
+  const e = new THREE.Euler();
 
-  const cobbleGeo = rockGeometry(77);
   const cobbleMat = new THREE.MeshStandardNodeMaterial({ roughness: 0.9 });
   cobbleMat.colorNode = mix(
     color(PALETTE.granite),
     color(0x4c_4a_40),
     mx_noise_float(positionWorld.mul(3)).mul(0.5).add(0.5)
   );
-  const cobbles = new THREE.InstancedMesh(cobbleGeo, cobbleMat, 520);
-  let n = 0;
-  while (n < 520) {
-    const cx = (rnd() * 2 - 1) * 40;
-    const cz = (rnd() * 2 - 1) * 30;
-    const k = 2 + Math.floor(rnd() * 6);
-    for (let i = 0; i < k && n < 520; i += 1) {
-      const x = cx + (rnd() - 0.5) * 2.5;
-      const z = cz + (rnd() - 0.5) * 2.5;
-      if (!free(x, z)) {
-        continue;
-      }
-      const r = 0.05 + rnd() * rnd() * 0.28;
-      p.set(x, floorHeight(x, z) + r * 0.2, z);
-      q.setFromEuler(
-        new THREE.Euler(rnd() * 0.4, rnd() * Math.PI * 2, rnd() * 0.4)
-      );
-      s.set(r, r * (0.5 + rnd() * 0.3), r * (0.8 + rnd() * 0.4));
-      cobbles.setMatrixAt(n, m.compose(p, q, s));
-      n += 1;
-    }
-  }
 
   const starShape = new THREE.Shape();
   for (let i = 0; i <= 10; i += 1) {
@@ -643,55 +772,114 @@ export const buildScatter = (level: Level) => {
     color(0xe0_74_2c),
     mx_noise_float(positionWorld.mul(9)).mul(0.5).add(0.5)
   );
-  const stars = new THREE.InstancedMesh(starGeo, starMat, 60);
-  for (let i = 0; i < 60; i += 1) {
-    let x = 0;
-    let z = 0;
-    do {
-      x = (rnd() * 2 - 1) * 34;
-      z = (rnd() * 2 - 1) * 24;
-    } while (!free(x, z));
-    const r = 0.08 + rnd() * 0.06;
-    p.set(x, floorHeight(x, z) + 0.02, z);
-    q.setFromEuler(new THREE.Euler(0, rnd() * Math.PI * 2, 0));
-    s.setScalar(r);
-    stars.setMatrixAt(i, m.compose(p, q, s));
-    stars.setColorAt(
-      i,
-      tint.setHSL(0.02 + rnd() * 0.06, 0.7, 0.4 + rnd() * 0.15)
-    );
-  }
 
-  const shellGeo = new THREE.SphereGeometry(
-    1,
-    10,
-    6,
-    0,
-    Math.PI * 2,
-    0,
-    Math.PI * 0.35
-  );
   const shellMat = new THREE.MeshStandardNodeMaterial({
     roughness: 0.5,
     side: THREE.DoubleSide,
   });
   shellMat.colorNode = color(0xe9_df_c8);
-  const shells = new THREE.InstancedMesh(shellGeo, shellMat, 260);
-  for (let i = 0; i < 260; i += 1) {
-    const x = (rnd() * 2 - 1) * 40;
-    const z = (rnd() * 2 - 1) * 30;
-    const r = 0.03 + rnd() * 0.05;
-    p.set(x, floorHeight(x, z) + 0.005, z);
-    q.setFromEuler(
-      new THREE.Euler(
-        (rnd() - 0.5) * 0.6,
-        rnd() * Math.PI * 2,
-        (rnd() - 0.5) * 0.6
-      )
-    );
-    s.set(r, r * 0.6, r * 1.2);
-    shells.setMatrixAt(i, m.compose(p, q, s));
+
+  return [
+    {
+      geo: rockGeometry(77),
+      mat: cobbleMat,
+      perM2: 0.09,
+      clump: 5,
+      place: (x, z, floorY, rnd, m) => {
+        const r = 0.05 + rnd() * rnd() * 0.28;
+        p.set(x, floorY + r * 0.2, z);
+        q.setFromEuler(e.set(rnd() * 0.4, rnd() * Math.PI * 2, rnd() * 0.4));
+        s.set(r, r * (0.5 + rnd() * 0.3), r * (0.8 + rnd() * 0.4));
+        m.compose(p, q, s);
+      },
+    },
+    // Bat stars (Patiria miniata).
+    {
+      geo: starGeo,
+      mat: starMat,
+      perM2: 0.012,
+      clump: 1,
+      tinted: true,
+      place: (x, z, floorY, rnd, m, tint) => {
+        const r = 0.08 + rnd() * 0.06;
+        p.set(x, floorY + 0.02, z);
+        q.setFromEuler(e.set(0, rnd() * Math.PI * 2, 0));
+        s.setScalar(r);
+        m.compose(p, q, s);
+        tint.setHSL(0.02 + rnd() * 0.06, 0.7, 0.4 + rnd() * 0.15);
+      },
+    },
+    {
+      geo: new THREE.SphereGeometry(
+        1,
+        10,
+        6,
+        0,
+        Math.PI * 2,
+        0,
+        Math.PI * 0.35
+      ),
+      mat: shellMat,
+      perM2: 0.045,
+      clump: 1,
+      place: (x, z, floorY, rnd, m) => {
+        const r = 0.03 + rnd() * 0.05;
+        p.set(x, floorY + 0.005, z);
+        q.setFromEuler(
+          e.set((rnd() - 0.5) * 0.6, rnd() * Math.PI * 2, (rnd() - 0.5) * 0.6)
+        );
+        s.set(r, r * 0.6, r * 1.2);
+        m.compose(p, q, s);
+      },
+    },
+  ];
+};
+
+/** Seafloor scatter: cobbles, bat stars and broken shell, so open sand reads at walking scale. */
+export const buildScatter = (level: Level) => {
+  const rnd = mulberry32(211);
+  const group = new THREE.Group();
+  const m = new THREE.Matrix4();
+  const tint = new THREE.Color();
+  const { u0, u1, v0, v1 } = level.bounds;
+  const free = (x: number, z: number) =>
+    floorHeight(level, x, z) < -1.5 &&
+    !level.rocks
+      .near(x, z)
+      .some((b) => Math.hypot(b.x - x, b.z - z) < b.r * 0.9);
+  for (const kind of scatterKinds()) {
+    const per = Math.round(kind.perM2 * SCATTER_CELL * SCATTER_CELL);
+    for (let cu = u0; cu < u1; cu += SCATTER_CELL) {
+      for (let cv = v0; cv < v1; cv += SCATTER_CELL) {
+        const mesh = new THREE.InstancedMesh(kind.geo, kind.mat, per);
+        let n = 0;
+        for (let guard = 0; n < per && guard < per * 3;) {
+          const au = cu + rnd() * SCATTER_CELL;
+          const av = cv + rnd() * SCATTER_CELL;
+          for (let i = 0; i < kind.clump && n < per; i += 1) {
+            guard += 1;
+            const spread = kind.clump > 1 ? 2.5 : 0;
+            const { x, z } = toWorld(
+              au + (rnd() - 0.5) * spread,
+              av + (rnd() - 0.5) * spread
+            );
+            if (free(x, z)) {
+              kind.place(x, z, floorHeight(level, x, z), rnd, m, tint);
+              mesh.setMatrixAt(n, m);
+              if (kind.tinted) {
+                mesh.setColorAt(n, tint);
+              }
+              n += 1;
+            }
+          }
+        }
+        mesh.count = n;
+        if (n) {
+          mesh.computeBoundingSphere();
+          group.add(mesh);
+        }
+      }
+    }
   }
-  group.add(cobbles, stars, shells);
   return group;
 };

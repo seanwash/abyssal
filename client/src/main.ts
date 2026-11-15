@@ -5,11 +5,12 @@ import { pickTarget } from "../../shared/arena";
 import type { Fx, Target } from "../../shared/arena";
 import { DT, SUITS } from "../../shared/constants";
 import { SPECIES } from "../../shared/creatures";
-import { buildLevel, groundHeight } from "../../shared/level";
+import { groundHeight, nearestStation } from "../../shared/level";
 import type { Level } from "../../shared/level";
 import { lootReach } from "../../shared/loot/haul";
 import { ITEMS } from "../../shared/loot/items";
 import { stationReach } from "../../shared/station";
+import { buildLevel } from "../../shared/zones";
 import { VIEWS } from "./creatures";
 import { DiverView } from "./diver";
 import {
@@ -43,6 +44,7 @@ import { PARTY } from "./party";
 import { near, sound } from "./sound";
 import { StationLine } from "./station/line";
 import { StationScreen } from "./station/screen";
+import { settleWater, tuneWater, water } from "./water";
 
 import css from "./style.css?inline";
 
@@ -131,7 +133,7 @@ interface FxScene {
 }
 
 const main = async () => {
-  const level = buildLevel(7);
+  const level = buildLevel();
   // Joining the party runs while the renderer starts and the reef is built.
   const net = new Net(level);
   const joining = net.connect(params.get("name") ?? "");
@@ -155,16 +157,18 @@ const main = async () => {
 
   const camera = isoCamera();
 
-  scene.add(new THREE.HemisphereLight(0x6f_b3_c4, 0x1a_24_20, 0.35));
+  const sky = new THREE.HemisphereLight(0x6f_b3_c4, 0x1a_24_20, 0.35);
   const sun = new THREE.DirectionalLight(PALETTE.sun, 0.9);
-  scene.add(sun, sun.target);
+  scene.add(sky, sun, sun.target);
+  const skyIntensity = sky.intensity;
+  const sunIntensity = sun.intensity;
 
-  // Kelp generation is the longest synchronous step, so give the browser a turn on either side of it.
+  // Kelp generation is the longest step, so it gives the browser a turn between cells.
   scene.add(buildFloor(level), buildBoulders(level), buildScatter(level));
   await yieldToBrowser();
-  scene.add(buildKelp(level));
-  await yieldToBrowser();
-  scene.add(buildGodRays());
+  scene.add(await buildKelp(level, yieldToBrowser));
+  const rays = buildGodRays();
+  scene.add(rays);
   const snow = buildMarineSnow();
   scene.add(snow.object);
 
@@ -181,7 +185,8 @@ const main = async () => {
   scene.add(...lootView.objects);
   const line = new StationLine(level);
   scene.add(...line.objects);
-  const reach = [stationReach(level)];
+  const stations = stationReach(level);
+  const reach = [...stations];
 
   const nettles = level.jellies.map((j) => new SeaNettle(j));
   for (const n of nettles) {
@@ -213,6 +218,7 @@ const main = async () => {
   });
   const camTarget = new THREE.Vector3(net.sim.x, net.sim.y, net.sim.z);
   placeCamera(camera, camTarget);
+  settleWater(level, camTarget.x, camTarget.z);
   loader.step("Mixing the glow", 0.5);
   // The pass compiles through the renderer, which reports each finished pipeline to its own progress callback.
   const compile = renderer.compileAsync.bind(renderer);
@@ -472,9 +478,8 @@ const main = async () => {
   ) => {
     const partner = divers.find((d) => !d.local && !d.aboard);
     // At the station the camera rests above the line, so the reef shows behind the station's screen.
-    const at = me.aboard
-      ? { x: level.station.x, y: -1, z: level.station.z }
-      : me;
+    const moor = nearestStation(level, me.x, me.z);
+    const at = me.aboard ? { x: moor.x, y: -1, z: moor.z } : me;
     const lead = me.aboard
       ? new THREE.Vector3()
       : new THREE.Vector3(me.vx, 0, me.vz).multiplyScalar(0.35);
@@ -511,15 +516,32 @@ const main = async () => {
       cutaway.partner.value.set(0, 1e4, 0);
     }
     diverLight.position.set(at.x, at.y + 1.6, at.z);
+    // Two lamps lighting the same patch would add up to a glare, so each dims as the divers close in.
+    const shared = partner
+      ? Math.max(
+          0,
+          1 -
+            Math.hypot(partner.x - at.x, partner.y - at.y, partner.z - at.z) /
+              (ISO.radius * 2)
+        )
+      : 0;
+    const lamp = lightIntensity * (1 - 0.4 * shared);
     diverLight.intensity =
-      lightIntensity * (1 - 0.85 * enclosure(level, at.x, at.y, at.z));
+      lamp * (1 - 0.85 * enclosure(level, at.x, at.y, at.z));
     partnerLight.position.copy(cutaway.partner.value).y += 1.6;
     partnerLight.intensity = partner
-      ? lightIntensity *
-        (1 - 0.85 * enclosure(level, partner.x, partner.y, partner.z))
+      ? lamp * (1 - 0.85 * enclosure(level, partner.x, partner.y, partner.z))
       : 0;
     sun.position.set(camTarget.x - 8, 18, camTarget.z + 12);
     sun.target.position.copy(camTarget);
+    rays.position.set(camTarget.x, 0, camTarget.z);
+
+    const area = tuneWater(level, at.x, at.z, dt);
+    hud.place(area);
+    sky.intensity = skyIntensity * (0.45 + 0.55 * water.sun.value);
+    sun.intensity = sunIntensity * water.sun.value;
+    diverLight.distance = ISO.radius * 2.2 * water.reach.value;
+    partnerLight.distance = diverLight.distance;
   };
 
   /** Picks what the action key aims at and acts on a press, then draws the labels, station screen and HUD. */
@@ -531,7 +553,7 @@ const main = async () => {
     dt: number,
     t: number
   ) => {
-    reach.length = 1;
+    reach.length = stations.length;
     reach.push(...lootReach(loot));
     const target =
       me.down || me.aboard
@@ -578,7 +600,7 @@ const main = async () => {
       divers,
       creatures,
       loot,
-      level.station,
+      nearestStation(level, me.x, me.z),
       target,
       act,
       net,

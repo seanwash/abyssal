@@ -180,6 +180,31 @@ const LOOKS: Record<string, (glow: Glow) => THREE.Object3D> = {
     g.position.y = 0.05;
     return g;
   },
+  // A coiled ammonite half-buried in a lump of pale fill, the rock it was dumped with.
+  ammonite: (glow) => {
+    const rock = material(0xc8_c0_ac, glow, 0xff_e0_a0, 0.95);
+    const shell = material(0x9a_7a_4e, glow, 0xff_d0_70, 0.6);
+    shell.colorNode = mix(
+      color(0x6a_50_30),
+      color(0xc8_a8_70),
+      mx_noise_float(positionLocal.mul(30)).mul(0.5).add(0.5)
+    );
+    const g = new THREE.Group();
+    g.add(mesh(sphere, rock, [0, 0.04, 0], [0.34, 0.1, 0.28]));
+    const coil = new THREE.Group();
+    let r = 0.15;
+    let at = 0;
+    for (let i = 0; i < 4; i += 1) {
+      const t = r * 0.32;
+      coil.add(mesh(new THREE.TorusGeometry(r, t, 6, 18), shell, [at, 0, 0]));
+      at += r * 0.32;
+      r *= 0.62;
+    }
+    coil.rotation.x = -Math.PI / 2 + 0.35;
+    coil.position.y = 0.12;
+    g.add(coil);
+    return g;
+  },
   "drone-housing": (glow) => {
     const brass = material(0x8a_6a_30, glow, 0xff_d0_70, 0.45);
     brass.metalness = 0.8;

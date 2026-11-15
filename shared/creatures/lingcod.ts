@@ -76,7 +76,7 @@ const stalk: Step = (c, world, dt, prey) => {
     return;
   }
   const goal = toward(c, prey.sim, 2.2);
-  goal.y = Math.min(prey.sim.y, floorHeight(goal.x, goal.z) + 3);
+  goal.y = Math.min(prey.sim.y, floorHeight(world.level, goal.x, goal.z) + 3);
   glide(world.level, c, size, goal, 2.4, 3, dt, 0.15);
   faceAlong(c, prey.sim.x - c.x, prey.sim.y - c.y, prey.sim.z - c.z, dt);
   if (dist3(c, prey.sim) < 3.2 && c.cooldown <= 0) {

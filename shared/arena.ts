@@ -299,10 +299,11 @@ export class Arena implements World {
     for (const c of this.creatures) {
       const sp = SPECIES[c.kind];
       sp.think(c, this, dt);
+      const from = { x: c.x, z: c.z };
       c.x += c.vx * dt;
       c.y += c.vy * dt;
       c.z += c.vz * dt;
-      collide(this.level, c, sp.size.r, sp.size.h);
+      collide(this.level, c, sp.size.r, sp.size.h, from);
     }
     this.checkPhase();
   }

@@ -69,6 +69,14 @@ export const ITEMS: Record<string, Item> = {
     pry: true,
     rare: true,
   },
+  ammonite: {
+    latin: "Ammonoidea",
+    common: "Ammonite, out of place",
+    category: "evidence",
+    note: "Ammonites died out with the dinosaurs, long before any of the bay's fossil beds formed. This one came in with rock dumped from somewhere else.",
+    pry: true,
+    rare: true,
+  },
   "drone-housing": {
     latin: "Machina exploratrix",
     common: "Survey drone housing",

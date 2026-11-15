@@ -130,7 +130,7 @@ export const steerVelocity = (
   const px = b.x + b.vx * 0.6;
   const py = b.y + b.vy * 0.6;
   const pz = b.z + b.vz * 0.6;
-  for (const rock of level.boulders) {
+  for (const rock of level.rocks.near(px, pz)) {
     const e = boulderExtent(rock);
     const A = e.a + r + 0.8;
     const C = e.c + h + 0.8;
@@ -162,7 +162,7 @@ export const steerVelocity = (
     gy += ny * push;
     gz += nz * push;
   }
-  const floor = floorHeight(px, pz) + h + floorGap;
+  const floor = floorHeight(level, px, pz) + h + floorGap;
   if (py < floor) {
     gy += (floor - py) * 2.5;
   }

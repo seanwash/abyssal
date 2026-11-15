@@ -1,6 +1,5 @@
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
 import {
-  color,
   float,
   fog,
   length,
@@ -17,11 +16,13 @@ import {
 import * as THREE from "three/webgpu";
 
 import { cutaway } from "./env";
+import { water } from "./water";
 
 /**
  * Diablo II-style look: a fixed 2:1 isometric orthographic camera, a low internal resolution
  * upscaled with hard pixels, and a light radius around each diver. Outside the radius the
- * water falls to near black, so the self-lit nettles, plankton and headlamp carry the glow.
+ * water falls to the zone's water colour, near black in the open bay, so the self-lit nettles,
+ * plankton and headlamp carry the glow.
  */
 export const ISO = {
   yaw: THREE.MathUtils.degToRad(45),
@@ -29,10 +30,10 @@ export const ISO = {
   distance: 40,
   viewHeight: 11,
   lines: 450,
+  /** Lamp radius before the zone's water scales it. */
   radius: 5.5,
   /** Vertical distance counts this many times horizontal distance, so a diver sees the floor only when near it. */
   vertical: 1.7,
-  dark: 0x02_0b_10,
 };
 
 export const fitIso = (camera: THREE.OrthographicCamera) => {
@@ -81,15 +82,17 @@ const dropShadow = (diver: Vec3Node) => {
 };
 
 /**
- * Near-black water that closes in with 3D distance from the nearest diver, so each diver's lamp
- * opens its own pocket of the dark, plus each diver's drop shadow on whatever lies below it.
+ * Water that closes in with 3D distance from the nearest diver, so each diver's lamp opens its own
+ * pocket of the dark, plus each diver's drop shadow on whatever lies below it. The zone's water
+ * sets the colour, how far the lamps reach and how much of the distance it hides.
  */
 export const applyIsoScene = (scene: THREE.Scene) => {
-  scene.backgroundNode = color(ISO.dark);
+  scene.backgroundNode = water.color;
   const d = min(lampDistance(cutaway.diver), lampDistance(cutaway.partner));
-  const dark = smoothstep(ISO.radius * 0.45, ISO.radius * 2.1, d).mul(0.94);
+  const r = water.reach.mul(ISO.radius);
+  const dark = smoothstep(r.mul(0.45), r.mul(2.1), d).mul(water.dark);
   const shadow = max(dropShadow(cutaway.diver), dropShadow(cutaway.partner));
-  scene.fogNode = fog(color(ISO.dark), max(dark, shadow));
+  scene.fogNode = fog(water.color, max(dark, shadow));
 };
 
 /** A diver's own light: the circle of visibility around them. */

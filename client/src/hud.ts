@@ -4,6 +4,7 @@ import { AIR_MAX, PHASE } from "../../shared/arena";
 import type { Fx, Target } from "../../shared/arena";
 import { SUITS } from "../../shared/constants";
 import { SPECIES } from "../../shared/creatures";
+import type { Area } from "../../shared/level";
 import { BAG_SLOTS } from "../../shared/loot/haul";
 import { ITEMS } from "../../shared/loot/items";
 import { BOT_ID } from "../../shared/protocol";
@@ -306,6 +307,9 @@ export class Hud {
   private mark: HTMLElement;
   private dev: HTMLElement;
   private nearNettle = false;
+  private placeTitle: HTMLElement;
+  private placeSub: HTMLElement;
+  private placeId: string | undefined;
   /** Why this tab is not in the party, from the connection, shown under depth. */
   private notice = "";
   private keysLeft = localStorage.getItem(KEYS_SEEN) ? 0 : KEY_HINT_SECONDS;
@@ -317,12 +321,15 @@ export class Hud {
   constructor() {
     el("div", "hud-mat", this.root);
     el("div", "hud-frame", this.root, "<i></i><i></i><i></i><i></i>");
-    el(
+    const place = el(
       "div",
       "hud-place",
       this.root,
-      '<div class="kick">Plate I</div><div class="title">Test Reef</div><div class="sub">Monterey Bay &middot; kelp forest</div>'
+      '<div class="kick">Plate I &middot; Cannery Row</div><div class="title"></div><div class="sub"></div>'
     );
+    this.placeTitle = part(place, ".title");
+    this.placeSub = part(place, ".sub");
+    this.place(null);
 
     const right = el(
       "div",
@@ -473,6 +480,27 @@ export class Hud {
         (d) =>
           Math.hypot(d.x - specimen.x, d.y - specimen.y, d.z - specimen.z) < 8
       );
+  }
+
+  /**
+   * Names the part of the zone the camera is in at the top left, and announces it in the top rule
+   * the way Diablo II announces an area, each time the diver swims into a new one.
+   */
+  place(area: Area | null) {
+    if (area?.id === this.placeId) {
+      return;
+    }
+    const first = this.placeId === undefined;
+    this.placeId = area?.id ?? "";
+    this.placeTitle.textContent = area?.name ?? "Monterey Bay";
+    this.placeSub.textContent = area
+      ? `${area.sub} · beat ${area.beat}`
+      : "Open water off Cannery Row";
+    if (area && !first) {
+      this.banner.innerHTML = `Entering ${escape(area.name)}`;
+      this.banner.classList.add("show");
+      this.bannerUntil = performance.now() + 3200;
+    }
   }
 
   /** Frame time, frame rate and ping, on the bottom rule; the backtick key shows or hides them. */

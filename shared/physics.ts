@@ -1,15 +1,13 @@
 import {
   DIVER_HALF_HEIGHT,
   DIVER_RADIUS,
-  PLAY_HALF_X,
-  PLAY_HALF_Z,
   SURFACE_Y,
   SWIM_RESPONSE,
   SWIM_SPEED,
   TURN_RESPONSE,
   VERTICAL_SPEED,
 } from "./constants";
-import { boulderExtent, floorHeight } from "./level";
+import { boulderExtent, floorHeight, toMap, toWorld } from "./level";
 import type { Level } from "./level";
 import type { DiverInput, DiverSim } from "./protocol";
 
@@ -26,15 +24,21 @@ const CEILING = SURFACE_Y - 0.9;
 const PASSES = 3;
 
 /** Lowest height the centre of a body `r` wide and `h` half-tall may reach at x, z: the floor under its middle and edges. */
-export const floorLimit = (x: number, z: number, r: number, h: number) => {
+export const floorLimit = (
+  level: Level,
+  x: number,
+  z: number,
+  r: number,
+  h: number
+) => {
   const o = r * 0.7;
   return (
     Math.max(
-      floorHeight(x, z),
-      floorHeight(x + o, z),
-      floorHeight(x - o, z),
-      floorHeight(x, z + o),
-      floorHeight(x, z - o)
+      floorHeight(level, x, z),
+      floorHeight(level, x + o, z),
+      floorHeight(level, x - o, z),
+      floorHeight(level, x, z + o),
+      floorHeight(level, x, z - o)
     ) +
     h +
     0.05
@@ -48,7 +52,7 @@ export const floorLimit = (x: number, z: number, r: number, h: number) => {
  */
 const resolveBoulders = (level: Level, s: Body, r: number, h: number) => {
   let moved = false;
-  for (const b of level.boulders) {
+  for (const b of level.rocks.near(s.x, s.z)) {
     const e = boulderExtent(b);
     const A = e.a + r;
     const C = e.c + h;
@@ -90,11 +94,55 @@ const resolveBoulders = (level: Level, s: Body, r: number, h: number) => {
   return moved;
 };
 
-/** Keeps a body `r` wide and `h` half-tall out of the boulders and the seafloor, below the surface and inside the play area. */
-export const collide = (level: Level, s: Body, r: number, h: number) => {
+/** Keeps a body inside the zone's bounds, which are a rectangle in the map frame, and stops its velocity outward. */
+const keepInBounds = (level: Level, s: Body) => {
+  const { u0, u1, v0, v1 } = level.bounds;
+  const p = toMap(s.x, s.z);
+  const u = Math.min(u1, Math.max(u0, p.u));
+  const v = Math.min(v1, Math.max(v0, p.v));
+  if (u === p.u && v === p.v) {
+    return;
+  }
+  const w = toWorld(u, v);
+  s.x = w.x;
+  s.z = w.z;
+  const m = toMap(s.vx, s.vz);
+  const vu = u === p.u ? m.u : 0;
+  const vv = v === p.v ? m.v : 0;
+  const back = toWorld(vu, vv);
+  s.vx = back.x;
+  s.vz = back.z;
+};
+
+/**
+ * Keeps a body `r` wide and `h` half-tall out of the boulders and the seafloor, below the surface
+ * and inside the zone. Ground too shallow to swim over, such as the beach, stops it like a wall:
+ * given where it was before this step, `from`, it slides along the shallows instead of crossing.
+ */
+export const collide = (
+  level: Level,
+  s: Body,
+  r: number,
+  h: number,
+  from?: { x: number; z: number }
+) => {
+  if (from && floorLimit(level, s.x, s.z, r, h) > CEILING) {
+    if (floorLimit(level, s.x, from.z, r, h) <= CEILING) {
+      s.z = from.z;
+      s.vz = 0;
+    } else if (floorLimit(level, from.x, s.z, r, h) <= CEILING) {
+      s.x = from.x;
+      s.vx = 0;
+    } else {
+      s.x = from.x;
+      s.z = from.z;
+      s.vx = 0;
+      s.vz = 0;
+    }
+  }
   for (let pass = 0; pass < PASSES; pass += 1) {
     let moved = resolveBoulders(level, s, r, h);
-    const minY = floorLimit(s.x, s.z, r, h);
+    const minY = floorLimit(level, s.x, s.z, r, h);
     if (s.y < minY) {
       s.y = minY;
       s.vy = Math.max(0, s.vy);
@@ -104,14 +152,7 @@ export const collide = (level: Level, s: Body, r: number, h: number) => {
       s.y = CEILING;
       s.vy = Math.min(0, s.vy);
     }
-    if (Math.abs(s.x) > PLAY_HALF_X) {
-      s.x = Math.sign(s.x) * PLAY_HALF_X;
-      s.vx *= -0.2;
-    }
-    if (Math.abs(s.z) > PLAY_HALF_Z) {
-      s.z = Math.sign(s.z) * PLAY_HALF_Z;
-      s.vz *= -0.2;
-    }
+    keepInBounds(level, s);
     if (!moved) {
       break;
     }
@@ -131,10 +172,10 @@ export const clearLine = (
     const x = a.x + (b.x - a.x) * t;
     const y = a.y + (b.y - a.y) * t;
     const z = a.z + (b.z - a.z) * t;
-    if (y < floorHeight(x, z)) {
+    if (y < floorHeight(level, x, z)) {
       return false;
     }
-    for (const r of level.boulders) {
+    for (const r of level.rocks.near(x, z)) {
       const e = boulderExtent(r);
       if (
         ((x - r.x) ** 2 + (z - r.z) ** 2) / (e.a * e.a) +
@@ -151,7 +192,7 @@ export const clearLine = (
 /**
  * Advances one diver by one fixed step. The server and client prediction both call it, so they
  * agree on where a diver ends up. The diver collides with the seafloor, the boulders, the
- * surface and the edges of the play area.
+ * surface, the shallows and the edges of the zone.
  */
 export const stepDiver = (
   level: Level,
@@ -164,11 +205,12 @@ export const stepDiver = (
   s.vz += (input.z * SWIM_SPEED - s.vz) * k;
   s.vy += (input.y * VERTICAL_SPEED - s.vy) * k;
 
+  const from = { x: s.x, z: s.z };
   s.x += s.vx * dt;
   s.y += s.vy * dt;
   s.z += s.vz * dt;
 
-  collide(level, s, DIVER_RADIUS, DIVER_HALF_HEIGHT);
+  collide(level, s, DIVER_RADIUS, DIVER_HALF_HEIGHT, from);
 
   const speed = Math.hypot(s.vx, s.vz);
   if (speed > 0.25) {

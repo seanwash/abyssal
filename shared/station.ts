@@ -6,8 +6,9 @@ import { ITEMS } from "./loot/items";
 import type { DiverSim } from "./protocol";
 
 /**
- * The field station, the dive's town. Divers start there, climb out at its line on the surface
- * to log what they bagged, and dive again from it. Its log is the party's save: every find
+ * The field station, the dive's town. Divers start there, climb out at a station's line on the
+ * surface to log what they bagged (a zone has one where it starts and one where it ends), and
+ * dive again from the start. Its log is the party's save: every find
  * logged, by whom and when. The server keeps one per party on disk; clients only show it.
  */
 
@@ -17,19 +18,20 @@ const LINE_REACH = 2.6;
 const CLIMB_DEPTH = 1.6;
 
 export const canClimb = (level: Level, s: DiverSim) =>
-  Math.hypot(s.x - level.station.x, s.z - level.station.z) < LINE_REACH &&
-  s.y > SURFACE_Y - CLIMB_DEPTH;
+  s.y > SURFACE_Y - CLIMB_DEPTH &&
+  level.stations.some((l) => Math.hypot(s.x - l.x, s.z - l.z) < LINE_REACH);
 
-/** The line as something the action key aims at. Climbing out itself goes through `canClimb`. */
-export const stationReach = (level: Level): Reachable => ({
-  kind: "climb",
-  id: "station",
-  x: level.station.x,
-  y: SURFACE_Y - 1,
-  z: level.station.z,
-  range: LINE_REACH,
-  reachAround: LINE_REACH,
-});
+/** Each station's line as something the action key aims at. Climbing out itself goes through `canClimb`. */
+export const stationReach = (level: Level): Reachable[] =>
+  level.stations.map((l) => ({
+    kind: "climb",
+    id: `station-${l.id}`,
+    x: l.x,
+    y: SURFACE_Y - 1,
+    z: l.z,
+    range: LINE_REACH,
+    reachAround: LINE_REACH,
+  }));
 
 export interface Find {
   item: string;

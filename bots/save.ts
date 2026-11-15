@@ -17,9 +17,10 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { Client } from "@colyseus/sdk";
 import type { Room } from "@colyseus/sdk";
 
-import { buildLevel } from "../shared/level";
+import { toWorld } from "../shared/level";
 import type { Point } from "../shared/level";
 import type { StationMessage } from "../shared/station";
+import { buildLevel } from "../shared/zones";
 
 /** The parts of a diver's synced state this script reads. */
 interface DiverView {
@@ -48,8 +49,9 @@ interface DiveView {
 /**
  * Checks bagging, the field station and the save against the built server, the way an Amp Box
  * runs it: each release is a read-only copy of build/ and dist/, and saves go in
- * AMP_DEPLOYMENT_DATA_DIRECTORY. One diver bags a specimen, pries a fossil free with the bot
- * buddy, and climbs out to log both. The server then stops, a second release starts as a deploy
+ * AMP_DEPLOYMENT_DATA_DIRECTORY. One diver bags a specimen by the beach, swims west along the
+ * shallows to McAbee Boulders, pries the ammonite free with the bot buddy, and swims back to
+ * climb out and log both. The server then stops, a second release starts as a deploy
  * would, and the same party comes back to find both on the shelf and the fossil gone from the reef.
  *
  *   npm run build && npx tsx bots/save.ts
@@ -60,7 +62,10 @@ const url = `ws://127.0.0.1:${PORT}`;
 const work = mkdtempSync(path.join(tmpdir(), "abyssal-save-"));
 const data = path.join(work, "data");
 const party = `SAVE${Date.now() % 100_000}`;
-const level = buildLevel(7);
+const level = buildLevel();
+const [beach] = level.stations;
+/** A world point at a map point, `y` metres deep. */
+const over = (u: number, v: number, y: number) => ({ ...toWorld(u, v), y });
 const spot = (id: string) => {
   const s = level.loot.find((l) => l.id === id);
   if (!s) {
@@ -215,41 +220,42 @@ await sleep(300);
 check(a.me.aboard === 0, "the diver goes in the water");
 
 // The first find lies on open sand near the line.
-const urchin = spot("urchin-flat");
+const urchin = spot("urchin-beach");
 await a.swimTo({ x: urchin.x - 0.6, y: urchin.y + 0.55, z: urchin.z }, 0.45);
 const bagged = await a.hold(() => [...a.me.bag].includes("urchin-test"), 3000);
 check(
-  bagged && a.loot("urchin-flat").state === 1,
+  bagged && a.loot("urchin-beach").state === 1,
   `the diver bags the purple urchin test (bag: ${[...a.me.bag].join(", ")})`
 );
 
-// A fossil at the bottom of a crevice needs two divers: the bot buddy comes to help.
-const shells = spot("shells-crevice");
-await a.swimTo({ x: 8, y: -2.5, z: 9 }, 1.2);
-await a.swimTo({ x: shells.x, y: -2.5, z: shells.z }, 1);
-await a.swimTo({ x: shells.x, y: shells.y + 0.5, z: shells.z }, 0.5);
+// The ammonite in McAbee's rubble needs two divers: the bot buddy comes to help.
+const ammonite = spot("ammonite");
+await a.swimTo(over(100, -17, -1.6), 1.2);
+await a.swimTo(over(10, -17, -1.6), 1.2, 60_000);
+await a.swimTo({ x: ammonite.x, y: -1.6, z: ammonite.z }, 1);
+await a.swimTo({ x: ammonite.x, y: ammonite.y + 0.5, z: ammonite.z }, 0.5);
 await a.hold(() => false, 3000);
-const lone = a.loot("shells-crevice");
+const lone = a.loot("ammonite");
 check(
   lone.state === 0 && lone.work === 0 && lone.hands === 1,
-  `one diver alone cannot pry a fossil (hands ${lone.hands}, progress ${lone.work})`
+  `one diver alone cannot pry the ammonite (hands ${lone.hands}, progress ${lone.work})`
 );
 a.room.send("buddy");
-const pried = await a.hold(
-  () => [...a.me.bag].includes("capitola-shells"),
-  20_000
-);
+// The bot starts at the beach, about 110 m away.
+const pried = await a.hold(() => [...a.me.bag].includes("ammonite"), 90_000);
 check(
   pried,
-  `the bot buddy helps pry the Capitola shells free, and they go in the bag of the diver who started (bag: ${[...a.me.bag].join(", ")})`
+  `the bot buddy helps pry the ammonite free, and they go in the bag of the diver who started (bag: ${[...a.me.bag].join(", ")})`
 );
 check(
-  a.fx.some((f) => f.k === "pried" && f.item === "capitola-shells"),
+  a.fx.some((f) => f.k === "pried" && f.item === "ammonite"),
   "prying it free is announced to the clients"
 );
 
 // Climbing out at the line logs the bag and saves it.
-await a.swimTo({ x: level.station.x + 0.5, y: -0.9, z: level.station.z }, 0.8);
+await a.swimTo(over(10, -17, -1.6), 1.2);
+await a.swimTo(over(100, -17, -1.6), 1.2, 60_000);
+await a.swimTo({ x: beach.x + 0.5, y: -0.9, z: beach.z }, 0.8);
 a.room.send("climb");
 await sleep(500);
 const logged = a.station.at(-1);
@@ -261,7 +267,7 @@ check(
   logged.fresh
     ?.map((f) => f.item)
     .toSorted()
-    .join(",") === "capitola-shells,urchin-test",
+    .join(",") === "ammonite,urchin-test",
   `the climb-out logs both finds (${logged.fresh?.map((f) => f.item).join(", ")})`
 );
 check(
@@ -269,7 +275,7 @@ check(
   `the log is saved (${logged.error ?? "no error"})`
 );
 check(
-  logged.fresh?.find((f) => f.item === "capitola-shells")?.by.join(" & ") ===
+  logged.fresh?.find((f) => f.item === "ammonite")?.by.join(" & ") ===
     "Sean & Buddy (bot)",
   "the fossil is logged as found by both divers"
 );
@@ -310,15 +316,15 @@ check(
   log?.finds
     .map((f) => f.item)
     .toSorted()
-    .join(",") === "capitola-shells,urchin-test" && log.trips === 1,
+    .join(",") === "ammonite,urchin-test" && log.trips === 1,
   `the shelf still has both finds after the restart (${log?.finds.map((f) => f.item).join(", ")})`
 );
 check(
-  back.loot("shells-crevice").state === 2,
-  "the logged fossil is gone from its crevice for good"
+  back.loot("ammonite").state === 2,
+  "the logged ammonite is gone from McAbee for good"
 );
 check(
-  back.loot("urchin-flat").state === 0,
+  back.loot("urchin-beach").state === 0,
   "specimens are back on the reef for the new dive"
 );
 await back.room.leave();

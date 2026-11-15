@@ -5,7 +5,7 @@ import { AIR_MAX, Arena } from "../shared/arena";
 import type { ArenaDiver } from "../shared/arena";
 import { DT, MAX_DIVERS, TICK_RATE } from "../shared/constants";
 import { SPECIES } from "../shared/creatures";
-import { buildLevel } from "../shared/level";
+import { nearestStation } from "../shared/level";
 import type { Level } from "../shared/level";
 import { Haul } from "../shared/loot/haul";
 import { stepDiver } from "../shared/physics";
@@ -25,6 +25,7 @@ import {
   stationReach,
 } from "../shared/station";
 import type { StationLog, StationMessage } from "../shared/station";
+import { buildLevel } from "../shared/zones";
 import { buddyInput } from "./buddy";
 import { loadLog, writeLog } from "./save";
 import { CreatureState, DiveState, DiverState, LootState } from "./schema";
@@ -79,7 +80,7 @@ export class DiveRoom extends Room {
 
   onCreate(options: JoinOptions = {}) {
     this.state = new DiveState();
-    this.level = buildLevel(7);
+    this.level = buildLevel();
     this.arena = new Arena(this.level);
     const party =
       typeof options.party === "string" &&
@@ -91,7 +92,7 @@ export class DiveRoom extends Room {
     this.haul = new Haul(this.level, foundSpots(this.log));
     this.arena.reach = () => [
       ...this.haul.reachable(),
-      stationReach(this.level),
+      ...stationReach(this.level),
     ];
     for (const l of this.haul.loot) {
       this.state.loot.set(
@@ -359,7 +360,7 @@ export class DiveRoom extends Room {
     );
   }
 
-  /** The diver goes back in at its spawn below the station, with full air. */
+  /** The diver goes back in at its spawn below the zone's first station, with full air. */
   private dive(id: string, seat: Seat) {
     const d = this.state.divers.get(id);
     const spawn = this.level.spawns[d?.suit ?? 0];
@@ -428,7 +429,7 @@ export class DiveRoom extends Room {
       seq: d.ack + 1,
       ...buddyInput(this.arena, a, {
         leadAboard: !!lead?.aboard,
-        station: this.level.station,
+        station: nearestStation(this.level, seat.sim.x, seat.sim.z),
         loot: this.haul.loot,
       }),
     };
