@@ -39,7 +39,9 @@ addEventListener("keydown", (e) => {
 
 export const isMuted = () => muted;
 
-const ready = () => (ctx && ctx.state === "running" && !muted ? ctx : null);
+/** The running context, or null while it cannot play or a sound is too far off to hear: Web Audio rejects a ramp to a gain of 0. */
+const ready = (gain: number) =>
+  ctx && ctx.state === "running" && !muted && gain > 0 ? ctx : null;
 
 const envelope = (
   c: AudioContext,
@@ -66,7 +68,7 @@ export const tone = (
   delay = 0,
   attack = 0.005
 ) => {
-  const c = ready();
+  const c = ready(gain);
   if (!c) {
     return;
   }
@@ -88,7 +90,7 @@ export const hiss = (
   gain: number,
   delay = 0
 ) => {
-  const c = ready();
+  const c = ready(gain);
   if (!c) {
     return;
   }
