@@ -31,8 +31,6 @@ const SWIM = 3.2;
 const BUZZ = 6;
 /** A pass that has not reached its point by then, such as one blocked by rock, gives up. */
 const PASS_TIME = 4;
-/** How far past the diver a pass carries on, tried longest first. */
-const OVERSHOOT = [4, 2.5, 1] as const;
 
 interface SeaLion extends Creature {
   timer: number;
@@ -55,9 +53,22 @@ const size = { r: 0.5, h: 0.35 };
 const healthy = (c: SeaLion) => c.mode === SEALION.swim;
 
 /**
- * Where a pass at diver `d` aims: a metre to the side of them and on beyond, cut short where rock,
- * the seafloor or the surface is in the way, so the point is always open water. Null when there is
- * no room past them.
+ * Where a pass may aim, tried in order: metres `along` the sea lion's line to the diver, past them,
+ * and `side` across it. Far past the diver first; then shorter, and finally out to either side,
+ * for a diver with rock behind them.
+ */
+const PASS_AIMS = [
+  [4, 1.1],
+  [2.5, 1.1],
+  [1, 1.1],
+  [1, 1.6],
+  [1, -1.6],
+] as const;
+
+/**
+ * The first of `PASS_AIMS` around diver `d` with open water there and a little beyond, so the
+ * pass never ends in rock. Its height keeps between the seafloor and the surface, so a diver at
+ * the surface is buzzed from just below. Null when there is no room around them.
  */
 const passPoint = (level: Level, c: SeaLion, d: ArenaDiver) => {
   const dx = d.sim.x - c.x;
@@ -65,18 +76,24 @@ const passPoint = (level: Level, c: SeaLion, d: ArenaDiver) => {
   const l = Math.hypot(dx, dz) || 1;
   const ux = dx / l;
   const uz = dz / l;
-  for (const over of OVERSHOOT) {
-    const p = {
-      x: d.sim.x + ux * over - uz * 1.1,
-      y: d.sim.y + 0.3,
-      z: d.sim.z + uz * over + ux * 1.1,
+  for (const [along, side] of PASS_AIMS) {
+    const x = d.sim.x + ux * along - uz * side;
+    const z = d.sim.z + uz * along + ux * side;
+    const floor = floorLimit(level, x, z, size.r, size.h) + 0.5;
+    const ceiling = SURFACE_Y - 1.2;
+    if (floor > ceiling) {
+      continue;
+    }
+    const p = { x, y: Math.min(ceiling, Math.max(floor, d.sim.y + 0.3)), z };
+    const ox = x - d.sim.x;
+    const oz = z - d.sim.z;
+    const ol = Math.hypot(ox, oz);
+    const beyond = {
+      x: x + (ox / ol) * 1.5,
+      y: p.y,
+      z: z + (oz / ol) * 1.5,
     };
-    const beyond = { x: p.x + ux * 1.5, y: p.y, z: p.z + uz * 1.5 };
-    if (
-      p.y > floorLimit(level, p.x, p.z, size.r, size.h) + 0.5 &&
-      p.y < SURFACE_Y - 1.2 &&
-      clearLine(level, d.sim, beyond)
-    ) {
+    if (clearLine(level, d.sim, beyond)) {
       return p;
     }
   }
